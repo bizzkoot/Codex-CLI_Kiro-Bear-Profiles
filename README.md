@@ -2,7 +2,7 @@
 
 # 🚀 Codex CLI Alias Installer for Kiro & Bear Agents
 
-[![Version](https://img.shields.io/badge/version-v1.0.1-blue.svg)](https://github.com/bizzkoot/Codex-CLI_Kiro-Bear-Profiles/releases)
+[![Version](https://img.shields.io/badge/version-v1.0.2-blue.svg)](https://github.com/bizzkoot/Codex-CLI_Kiro-Bear-Profiles/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Bash](https://img.shields.io/badge/bash-3.2%2B-orange.svg)](https://www.gnu.org/software/bash/)
 [![macOS](https://img.shields.io/badge/macOS-compatible-brightgreen.svg)](https://www.apple.com/macos/)
@@ -35,13 +35,13 @@
 
 ### 🎯 Kiro - The Strategic Planner
 - **Purpose**: Requirements analysis and system design with strict gate controls
-- **Workflow**: Thinking → Requirements → Design → Tasks (with approval gates)
+- **Workflow**: Plan Preview → Requirements → Design → Tasks (with approval gates)
 - **Output**: Structured documentation (`requirements.md`, `design.md`, `tasks.md`)
 - **Best for**: New features, architectural changes, complex problem-solving
 
 ### ⚡ Bear - The Tactical Executor  
 - **Purpose**: Task implementation with deliberate planning and safety checks
-- **Workflow**: Thinking → Risk Assessment → Execution (with review gates)
+- **Workflow**: Plan Preview → Risk Assessment → Incremental Execution (tests each step)
 - **Output**: Working code, tests, and incremental progress
 - **Best for**: Implementing predefined tasks, debugging, refactoring
 
@@ -77,7 +77,7 @@
 
 ```mermaid
 graph TD
-    A["/kiro 'Feature Name'"] --> B[Phase 0: Thinking]
+    A["/kiro 'Feature Name'"] --> B[Plan Preview]
     B --> C[Requirements Preview]
     C --> D{User Review}
     D -->|✅ APPROVE| E[requirements.md]
@@ -116,22 +116,22 @@ graph TD
 
 ```mermaid
 graph TD
-    A["/bear 'Task Description'"] --> B[Phase 0: Planning]
+    A["/bear 'Task Description'"] --> B[Plan Preview]
     B --> C[Risk Assessment]
-    C --> D[Review Alternatives]
-    D --> E{Plan Approval}
-    E -->|✅ APPROVE| F[Step-by-Step Execution]
-    E -->|🔄 REVISE| B
-    F --> G[Tests & Validation]
-    G --> H[✨ Working Implementation]
+    C --> D{Plan Approval}
+    D -->|✅ APPROVE| E[Execute Step]
+    D -->|🔄 REVISE| B
+    E --> F[Validate Tests]
+    F --> G{More steps?}
+    G -->|Yes| E
+    G -->|No| H[✨ Working Implementation]
     
     style A fill:#8A2BE2,stroke:#4B0082,stroke-width:2px,color:#FFFFFF
     style B fill:#F5F5F5,stroke:#999999,stroke-width:2px,color:#333333
     style C fill:#F5F5F5,stroke:#999999,stroke-width:2px,color:#333333
-    style D fill:#F5F5F5,stroke:#999999,stroke-width:2px,color:#333333
-    style E fill:#FFE4B5,stroke:#D2691E,stroke-width:2px,color:#8B4513
+    style D fill:#FFE4B5,stroke:#D2691E,stroke-width:2px,color:#8B4513
+    style E fill:#DDA0DD,stroke:#8A2BE2,stroke-width:2px,color:#4B0082
     style F fill:#DDA0DD,stroke:#8A2BE2,stroke-width:2px,color:#4B0082
-    style G fill:#DDA0DD,stroke:#8A2BE2,stroke-width:2px,color:#4B0082
     style H fill:#98FB98,stroke:#32CD32,stroke-width:3px,color:#006400
 ```
 
@@ -212,7 +212,7 @@ Note: Tiers map to reasoning effort levels for the same model, not different mod
 ### 1️⃣ Install & Setup
 ```bash
 # Download and run the installer
-bash install_codex_aliases-1.0.1.sh
+bash install_codex_aliases-1.0.2.sh
 
 # Reload your shell
 source ~/.zshrc  # or ~/.bashrc
@@ -241,7 +241,7 @@ source ~/.zshrc  # or ~/.bashrc
 
 | 🚀 **Production Ready** | 🖥️ **macOS Compatible** | 🔢 **Flexible Tiers** |
 |:---:|:---:|:---:|
-| Versioned from v1.0.1 | Works with Bash 3.2+ | Choose by number or name |
+| Versioned from v1.0.2 | Works with Bash 3.2+ | Choose by number or name |
 
 | 🤝 **Interactive Flow** | 📂 **Path Handling** | ✍️ **Embedded Playbooks** |
 |:---:|:---:|:---:|
@@ -262,7 +262,7 @@ source ~/.zshrc  # or ~/.bashrc
 ### 📦 One-Line Installation
 
 ```bash
-bash install_codex_aliases-1.0.1.sh
+bash install_codex_aliases-1.0.2.sh
 ```
 
 </div>
@@ -299,9 +299,9 @@ bash install_codex_aliases-1.0.1.sh
 
 ```bash
 # Examples
-install_codex_aliases-1.0.1.sh --fresh
-install_codex_aliases-1.0.1.sh --repo /path/to/repo --force  
-CODEX_TIERS=mid,high install_codex_aliases-1.0.1.sh --fresh
+install_codex_aliases-1.0.2.sh --fresh
+install_codex_aliases-1.0.2.sh --repo /path/to/repo --force  
+CODEX_TIERS=mid,high install_codex_aliases-1.0.2.sh --fresh
 ```
 
 ## Aliases Installed
@@ -376,7 +376,7 @@ sequenceDiagram
     participant F as File System
 
     U->>K: Feature request
-    K->>K: Phase 0: Thinking (no files)
+    K->>U: Plan preview (concise)
     K->>U: PREVIEW requirements.md
     U->>K: APPROVE REQUIREMENTS
     K->>F: WRITE requirements.md
@@ -405,12 +405,13 @@ sequenceDiagram
     participant S as System
 
     U->>B: Task description
-    B->>B: Phase 0: Planning & Risk Assessment
-    B->>U: Plan summary with risks & alternatives
+    B->>U: Plan preview + risks
     U->>B: APPROVE or REVISE
-    B->>S: Execute step-by-step
-    B->>S: Run tests & validation
-    B->>U: Results & next steps
+    loop Incremental steps
+        B->>S: Execute step
+        B->>S: Run tests & validation
+        B->>U: Results & next step proposal
+    end
 ```
 
 </div>
@@ -498,7 +499,7 @@ ls -la codex/
 ### Repository Setup
 ```bash
 # Install playbooks in your project
-./install_codex_aliases-1.0.1.sh --repo . --force
+./install_codex_aliases-1.0.2.sh --repo . --force
 
 # Commit the playbooks for team sharing
 git add codex/

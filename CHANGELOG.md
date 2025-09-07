@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.2] - 2025-09-07
+### Changed
+- Bumped release to `v1.0.2`; installer renamed to `install_codex_aliases-1.0.2.sh` and internal `VERSION=1.0.2`.
+- Simplified Kiro/Bear thinking flows: concise preview → approve → write loops for Kiro; Bear focuses on incremental execution with patch-ready diffs.
+
+### Documentation
+- Updated README badge and all install commands to reference `install_codex_aliases-1.0.2.sh`.
+
 ## [1.0.1] - 2025-09-07
 ### Changed
 - Bumped release to `v1.0.1`; installer script renamed to `install_codex_aliases-1.0.1.sh` and internal `VERSION=1.0.1`.
