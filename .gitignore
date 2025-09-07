@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# Editors/IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs
+*.log
+
+# Release artifacts
+dist/
+*.tar.gz
+*.zip
+
+# Generated Codex playbooks (ignore)
+codex/
+
+# Archived installers (do not track)
+ARCHIVED/
+
