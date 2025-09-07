@@ -7,7 +7,7 @@ if [ -z "${BASH_VERSION:-}" ]; then
   exit 1
 fi
 
-VERSION="1.0.2"
+VERSION="1.0.3"
 SCRIPT_NAME="install_codex_aliases-${VERSION}.sh"
 
 # ───────────────────────── helpers ─────────────────────────
@@ -20,7 +20,7 @@ sep(){ ce "───────────────────────
 
 usage() {
   cat <<'EOF'
-install_codex_aliases.sh  v1.0.2  (Codex CLI native, gpt-5 with tiered reasoning)
+install_codex_aliases.sh  v1.0.3  (Codex CLI native, gpt-5 with tiered reasoning)
 
 Usage (non-interactive):
   install_codex_aliases.sh --fresh [--force]
@@ -50,7 +50,7 @@ What this does (when --fresh or interactive YES):
   • Writes global playbooks to ~/.codex/playbooks/{kiro.md,bear.md}
   • (Optional) Writes repo playbooks at PATH/codex/{kiro.md,bear.md}
 
-This 1.0.2 keeps Kiro/Bear separation but trims verbose “thinking steps”.
+This 1.0.3 keeps Kiro/Bear separation but trims verbose “thinking steps”.
 Kiro generates/updates requirements.md, design.md, tasks.md via short preview→approve→write loops.
 Bear executes tasks incrementally with patch-ready diffs. Chain-of-thought is NOT printed.
 EOF
@@ -150,6 +150,10 @@ ensure_profiles_for_tier() {
 
   add_or_update_profile() {
     local name="$1" ; shift
+    local role_base="${name%%_*}"  # kiro or bear
+    local repo_prompt="codex/${role_base}.md"
+    local global_prompt="${CODEX_PLAYBOOK_DIR}/${role_base}.md"
+
     if grep -q "^\[profiles\.${name}\]" "$cfg"; then
       if [[ "$FORCE" -eq 1 ]]; then
         info "Updating profile [$name] (force)"
@@ -165,7 +169,7 @@ ensure_profiles_for_tier() {
         cat >>"$cfg" <<EOF
 
 [profiles.${name}]
-prompt_files = ["codex/\${name%%_*}.md", "${CODEX_PLAYBOOK_DIR}/\${name%%_*}.md"]
+prompt_files = ["${repo_prompt}", "${global_prompt}"]
 model = "${CODEX_MODEL}"
 model_reasoning_effort = "${effort}"
 EOF
@@ -187,7 +191,7 @@ EOF
           cat >>"$cfg" <<EOF
 
 [profiles.${name}]
-prompt_files = ["codex/\${name%%_*}.md", "${CODEX_PLAYBOOK_DIR}/\${name%%_*}.md"]
+prompt_files = ["${repo_prompt}", "${global_prompt}"]
 model = "${CODEX_MODEL}"
 model_reasoning_effort = "${effort}"
 EOF
@@ -201,7 +205,7 @@ EOF
       cat >>"$cfg" <<EOF
 
 [profiles.${name}]
-prompt_files = ["codex/\${name%%_*}.md", "${CODEX_PLAYBOOK_DIR}/\${name%%_*}.md"]
+prompt_files = ["${repo_prompt}", "${global_prompt}"]
 model = "${CODEX_MODEL}"
 model_reasoning_effort = "${effort}"
 EOF
@@ -257,13 +261,13 @@ install_shell_block() {
   cp "$rcfile" "${rcfile}.bak.$(date +%Y%m%d-%H%M%S)"
 
   # Remove existing block (idempotent)
-  if grep -q "# BEGIN CODEX ALIASES v1.0.2" "$rcfile" 2>/dev/null; then
-    awk '/# BEGIN CODEX ALIASES v1.0.2/{flag=1} !flag{print} /# END CODEX ALIASES v1.0.2/{flag=0}' "$rcfile" > "${rcfile}.tmp"
+  if grep -q "# BEGIN CODEX ALIASES v1.0.3" "$rcfile" 2>/dev/null; then
+    awk '/# BEGIN CODEX ALIASES v1.0.3/{flag=1} !flag{print} /# END CODEX ALIASES v1.0.3/{flag=0}' "$rcfile" > "${rcfile}.tmp"
     mv "${rcfile}.tmp" "$rcfile"
   fi
 
   cat >> "$rcfile" <<'EOF'
-# BEGIN CODEX ALIASES v1.0.2
+# BEGIN CODEX ALIASES v1.0.3
 # Aliases call Codex profiles; profiles define repo-first prompt_files with a global fallback.
 
 alias /codex-aliases='alias | grep -E "^/(kiro|bear)" | sort'
@@ -281,7 +285,7 @@ alias /codex-aliases='alias | grep -E "^/(kiro|bear)" | sort'
 /bear-low()   { codex --profile bear_low  "$@"; }
 /bear-mid()   { codex --profile bear_mid  "$@"; }
 /bear-high()  { codex --profile bear_high "$@"; }
-# END CODEX ALIASES v1.0.2
+# END CODEX ALIASES v1.0.3
 EOF
 
   ok "Functions installed in $rcfile (between BEGIN/END markers)"
@@ -450,8 +454,8 @@ uninstall_everything() {
 
   # Remove shell alias block
   local rcfile; rcfile="$(detect_shell_rc)"
-  if grep -q "# BEGIN CODEX ALIASES v1.0.2" "$rcfile" 2>/dev/null; then
-    awk '/# BEGIN CODEX ALIASES v1.0.2/{flag=1} !flag{print} /# END CODEX ALIASES v1.0.2/{flag=0}' "$rcfile" > "${rcfile}.tmp"
+  if grep -q "# BEGIN CODEX ALIASES v1.0.3" "$rcfile" 2>/dev/null; then
+    awk '/# BEGIN CODEX ALIASES v1.0.3/{flag=1} !flag{print} /# END CODEX ALIASES v1.0.3/{flag=0}' "$rcfile" > "${rcfile}.tmp"
     mv "${rcfile}.tmp" "$rcfile"
     ok "Removed alias block from $rcfile"
   else
@@ -554,7 +558,7 @@ main() {
     sep
     local rcfile; rcfile="$(detect_shell_rc)"
     ce "Shell RC: $rcfile"
-    if grep -q "# BEGIN CODEX ALIASES v1.0.2" "$rcfile" 2>/dev/null; then
+    if grep -q "# BEGIN CODEX ALIASES v1.0.3" "$rcfile" 2>/dev/null; then
       ok "Alias block present"
     else
       warn "Alias block not found (run --fresh to install)"

@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.3] - 2025-09-07
+### Fixed
+- Corrected `prompt_files` entries written to `~/.codex/config.toml` profiles.  
+  v1.0.2 mistakenly wrote literal placeholders like `codex/${name%%_*}.md`, causing Codex to miss repo/global playbooks.  
+  v1.0.3 now resolves the role base (`kiro`/`bear`) explicitly and writes concrete paths:  
+  `prompt_files = ["codex/<role>.md", "~/.codex/playbooks/<role>.md"]` (repo-first, global fallback).
+
+### Changed
+- Bumped release to `v1.0.3`; installer renamed to `install_codex_aliases-1.0.3.sh` and internal `VERSION=1.0.3`.
+- Updated alias block markers in shell RC to `# BEGIN/END CODEX ALIASES v1.0.3` and aligned `--check`/`--uninstall` logic.
+
+### Documentation
+- Updated README badge and all install commands to reference `install_codex_aliases-1.0.3.sh`.
+- Clarified repo-first/global-fallback behavior for playbooks in usage text.
+
 ## [1.0.2] - 2025-09-07
 ### Changed
 - Bumped release to `v1.0.2`; installer renamed to `install_codex_aliases-1.0.2.sh` and internal `VERSION=1.0.2`.
