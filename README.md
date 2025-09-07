@@ -2,7 +2,7 @@
 
 # 🚀 Codex CLI Alias Installer for Kiro & Bear Agents
 
-[![Version](https://img.shields.io/badge/version-v1.0.0-blue.svg)](https://github.com/your-repo/codex-bear-kiro/releases)
+[![Version](https://img.shields.io/badge/version-v1.0.1-blue.svg)](https://github.com/bizzkoot/Codex-CLI_Kiro-Bear-Profiles/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Bash](https://img.shields.io/badge/bash-3.2%2B-orange.svg)](https://www.gnu.org/software/bash/)
 [![macOS](https://img.shields.io/badge/macOS-compatible-brightgreen.svg)](https://www.apple.com/macos/)
@@ -194,14 +194,16 @@ graph LR
 - ✅ Quick fixes or maintenance tasks
 - ✅ Following up on Kiro's planning phase
 
-### Model Tier Selection
+### Reasoning Tier Selection
 
-| Tier | Model | Best For | Cost | Speed |
-|------|-------|----------|------|-------|
-| **min** | `gpt-5-minimal` | Quick tasks, simple queries | Lowest | Fastest |
-| **low** | `gpt-5-low` | Standard development work | Low | Fast |
-| **mid** | `gpt-5-medium` | Complex features, planning | Medium | Balanced |
-| **high** | `gpt-5-high` | Critical systems, architecture | Highest | Most thorough |
+Note: Tiers map to reasoning effort levels for the same model, not different model IDs. Defaults target `gpt-5` with effort controls per tier.
+
+| Tier | Effort | Best For | Cost | Speed |
+|------|--------|----------|------|-------|
+| **min** | `minimal` | Quick tasks, simple queries | Lowest | Fastest |
+| **low** | `low` | Standard development work | Low | Fast |
+| **mid** | `medium` | Complex features, planning | Medium | Balanced |
+| **high** | `high` | Critical systems, architecture | Highest | Most thorough |
 
 ---
 
@@ -210,7 +212,7 @@ graph LR
 ### 1️⃣ Install & Setup
 ```bash
 # Download and run the installer
-bash install_codex_aliases-1.0.0.sh
+bash install_codex_aliases-1.0.1.sh
 
 # Reload your shell
 source ~/.zshrc  # or ~/.bashrc
@@ -239,7 +241,7 @@ source ~/.zshrc  # or ~/.bashrc
 
 | 🚀 **Production Ready** | 🖥️ **macOS Compatible** | 🔢 **Flexible Tiers** |
 |:---:|:---:|:---:|
-| Versioned from v1.0.0 | Works with Bash 3.2+ | Choose by number or name |
+| Versioned from v1.0.1 | Works with Bash 3.2+ | Choose by number or name |
 
 | 🤝 **Interactive Flow** | 📂 **Path Handling** | ✍️ **Embedded Playbooks** |
 |:---:|:---:|:---:|
@@ -260,7 +262,7 @@ source ~/.zshrc  # or ~/.bashrc
 ### 📦 One-Line Installation
 
 ```bash
-bash install_codex_aliases-1.0.0.sh
+bash install_codex_aliases-1.0.1.sh
 ```
 
 </div>
@@ -297,9 +299,9 @@ bash install_codex_aliases-1.0.0.sh
 
 ```bash
 # Examples
-install_codex_aliases-1.0.0.sh --fresh
-install_codex_aliases-1.0.0.sh --repo /path/to/repo --force  
-CODEX_TIERS=mid,high install_codex_aliases-1.0.0.sh --fresh
+install_codex_aliases-1.0.1.sh --fresh
+install_codex_aliases-1.0.1.sh --repo /path/to/repo --force  
+CODEX_TIERS=mid,high install_codex_aliases-1.0.1.sh --fresh
 ```
 
 ## Aliases Installed
@@ -438,10 +440,11 @@ sequenceDiagram
 
 ### Environment Overrides (Non-Interactive)
 ```bash
-export CODEX_MIN_MODEL="gpt-5-minimal"
-export CODEX_LOW_MODEL="gpt-5-low" 
-export CODEX_MID_MODEL="gpt-5-medium"
-export CODEX_HIGH_MODEL="gpt-5-high"
+export CODEX_MODEL="gpt-5"
+export CODEX_REASONING_MIN="minimal"
+export CODEX_REASONING_LOW="low"
+export CODEX_REASONING_MID="medium"
+export CODEX_REASONING_HIGH="high"
 export CODEX_TIERS="mid,high"  # Install subset
 ```
 
@@ -450,11 +453,13 @@ The installer creates profiles in `~/.codex/config.toml`:
 ```toml
 [profiles.kiro_mid]
 prompt_files = ["codex/kiro.md"]
-model = "gpt-5-medium"
+model = "gpt-5"
+model_reasoning_effort = "medium"
 
 [profiles.bear_mid]  
 prompt_files = ["codex/bear.md"]
-model = "gpt-5-medium"
+model = "gpt-5"
+model_reasoning_effort = "medium"
 ```
 
 ## Troubleshooting
@@ -493,7 +498,7 @@ ls -la codex/
 ### Repository Setup
 ```bash
 # Install playbooks in your project
-./install_codex_aliases-1.0.0.sh --repo . --force
+./install_codex_aliases-1.0.1.sh --repo . --force
 
 # Commit the playbooks for team sharing
 git add codex/
