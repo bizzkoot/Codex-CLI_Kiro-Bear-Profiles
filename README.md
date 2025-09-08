@@ -2,7 +2,7 @@
 
 # 🚀 Codex CLI Alias Installer for Kiro & Bear Agents
 
-[![Version](https://img.shields.io/badge/version-v1.0.3-blue.svg)](https://github.com/bizzkoot/Codex-CLI_Kiro-Bear-Profiles/releases)
+[![Version](https://img.shields.io/badge/version-v1.0.4-blue.svg)](https://github.com/bizzkoot/Codex-CLI_Kiro-Bear-Profiles/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Bash](https://img.shields.io/badge/bash-3.2%2B-orange.svg)](https://www.gnu.org/software/bash/)
 [![macOS](https://img.shields.io/badge/macOS-compatible-brightgreen.svg)](https://www.apple.com/macos/)
@@ -212,7 +212,7 @@ Note: Tiers map to reasoning effort levels for the same model, not different mod
 ### 1️⃣ Install & Setup
 ```bash
 # Download and run the installer
-bash install_codex_aliases-1.0.3.sh
+bash install_codex_aliases-1.0.4.sh
 
 # Reload your shell
 source ~/.zshrc  # or ~/.bashrc
@@ -241,7 +241,7 @@ source ~/.zshrc  # or ~/.bashrc
 
 | 🚀 **Production Ready** | 🖥️ **macOS Compatible** | 🔢 **Flexible Tiers** |
 |:---:|:---:|:---:|
-| Versioned from v1.0.3 | Works with Bash 3.2+ | Choose by number or name |
+| Versioned from v1.0.4 | Works with Bash 3.2+ | Choose by number or name |
 
 | 🤝 **Interactive Flow** | 📂 **Path Handling** | ✍️ **Embedded Playbooks** |
 |:---:|:---:|:---:|
@@ -262,7 +262,7 @@ source ~/.zshrc  # or ~/.bashrc
 ### 📦 One-Line Installation
 
 ```bash
-bash install_codex_aliases-1.0.3.sh
+bash install_codex_aliases-1.0.4.sh
 ```
 
 </div>
@@ -299,9 +299,9 @@ bash install_codex_aliases-1.0.3.sh
 
 ```bash
 # Examples
-install_codex_aliases-1.0.3.sh --fresh
-install_codex_aliases-1.0.3.sh --repo /path/to/repo --force  
-CODEX_TIERS=mid,high install_codex_aliases-1.0.3.sh --fresh
+install_codex_aliases-1.0.4.sh --fresh
+install_codex_aliases-1.0.4.sh --repo /path/to/repo --force  
+CODEX_TIERS=mid,high install_codex_aliases-1.0.4.sh --fresh
 ```
 
 ## Aliases Installed
@@ -499,7 +499,7 @@ ls -la codex/
 ### Repository Setup
 ```bash
 # Install playbooks in your project
-./install_codex_aliases-1.0.3.sh --repo . --force
+./install_codex_aliases-1.0.4.sh --repo . --force
 
 # Commit the playbooks for team sharing
 git add codex/
@@ -549,3 +549,42 @@ This is an experimental implementation of **TAD (Traceable Agentic Development)*
 *Built with ❤️ for the developer community*
 
 </div>
+
+
+---
+
+## New in v1.0.4
+
+### Role-based Enforcement
+- **Kiro Profiles**: 
+  - `approval_policy = "untrusted"`  
+  - `sandbox_mode = "read-only"`  
+  - `model_verbosity = "low"`
+
+- **Bear Profiles**:  
+  - `approval_policy = "on-request"`  
+  - `sandbox_mode = "workspace-write"`  
+  - `model_verbosity = "medium"`  
+  - Optional nested table:
+    ```toml
+    [profiles.bear_mid.sandbox_workspace_write]
+    writable_roots = ["/your/project"]
+    network_access = false
+    ```
+
+### File Opener Selection
+Choose the default app Codex CLI uses for clickable file links.
+
+Allowed values: `vscode` (default) · `vscode-insiders` · `windsurf` · `cursor` · `none`
+
+Example (non-interactive):
+```bash
+./install_codex_aliases-1.0.4.sh --fresh --file-opener cursor
+```
+
+### Kiro → Bear Handoff
+After `tasks.md` is written, Kiro prints a ready-to-paste handoff line:
+
+```bash
+SWITCH TO BEAR: /bear-mid "<ABSOLUTE_PATH_TO_tasks.md>"
+```
