@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.4] - 2025-09-08
+### Changed
+- Bumped release to `v1.0.4`; installer renamed to `install_codex_aliases-1.0.4.sh` and internal `VERSION=1.0.4`.
+- Updated alias block markers in shell RC to `# BEGIN/END CODEX ALIASES v1.0.4` (dynamic via `$VERSION`).
+
+### Added
+- **Role-based enforcement** in profiles:
+  - **Kiro**: `approval_policy="untrusted"`, `sandbox_mode="read-only"`, `model_verbosity="low"`.
+  - **Bear**: `approval_policy="on-request"`, `sandbox_mode="workspace-write"`, `model_verbosity="medium"`.
+- Support for nested TOML sub-tables: `[profiles.bear_<tier>.sandbox_workspace_write]` with `writable_roots` and `network_access = false` (if `CODEX_BEAR_WRITABLE_ROOTS` is set).
+- Interactive/global option to set **file_opener** (`vscode`, `vscode-insiders`, `windsurf`, `cursor`, `none`).  
+  Written as a top-level `file_opener` key in `~/.codex/config.toml`.
+- Explicit **handoff guidance**: Kiro playbook now prints  
+  `SWITCH TO BEAR: /bear-mid "<ABSOLUTE_PATH_TO_tasks.md>"`  
+  after writing `tasks.md`.
+
+### Fixed
+- **Regex escaping bug**: corrected profile removal logic in `add_or_update_profile()` to properly escape dots (`.`) in section names and to match headers exactly (`^\[profiles.<name>\]$`).
+- **Health check race condition**: sandbox verification and model availability probes now run *after* profiles/aliases/playbooks are written.
+- **Argument parsing typo**: removed stray `DO_CHECKCAL=0` in `--check` branch.
+- **Dead code**: `verify_profile_creation()` is now actively used after profile writes, warning if a profile fails to appear in `config.toml`.
+
+### Improved
+- **Health check clarity**: `verify_sandbox_config()` now differentiates between:
+  - Kiro profiles correctly configured for read-only.
+  - Bear profiles correctly configured for workspace-write.
+  - Bear profiles incorrectly stuck in read-only, with remedial `codex --profile <p> --sandbox workspace-write` advice.
+- More consistent and descriptive success/error messages across profile creation and sandbox verification.
+- Interactive flow improved with clearer separation of `NEEDS_FRESH_INSTALL` and `NEEDS_REPO_INSTALL`.
+
+### Documentation
+- Updated usage text to show new file_opener option and Bear handoff convention.
+- Clarified behavior of Kiro (STRICT planning, never edits code files) vs. Bear (executor with optional APPLY? gating).
+
 ## [1.0.3] - 2025-09-07
 ### Fixed
 - Corrected `prompt_files` entries written to `~/.codex/config.toml` profiles.  
