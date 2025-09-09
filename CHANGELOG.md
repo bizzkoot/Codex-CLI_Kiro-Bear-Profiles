@@ -2,6 +2,78 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0]
+
+### Migration Notes (from v1.0.x to v2.0.0)
+If you previously installed using `install_codex_aliases.sh` (or its versioned variants like `install_codex_aliases-1.0.4.sh`), you should uninstall the old aliases and functions before switching to the new unified installer.
+
+You can safely remove them with the following command snippet (copy & paste into your shell):
+
+```bash
+# Uninstall previous Codex aliases/profiles (v1.0.x) – NO BACKUP
+set -euo pipefail
+
+# 1) Remove alias/function blocks from common shell RC files
+for rc in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile"; do
+  [ -f "$rc" ] || continue
+  # Old aliases block (v1.0.x)
+  if grep -q "^# BEGIN CODEX ALIASES" "$rc"; then
+    awk '
+      /^# BEGIN CODEX ALIASES/ {skip=1}
+      skip==0 {print}
+      /^# END CODEX ALIASES/ {skip=0}
+    ' "$rc" > "${rc}.tmp" && mv "${rc}.tmp" "$rc"
+    echo "Removed CODEX ALIASES block from $rc"
+  fi
+  # Embedded functions block (newer installers)
+  if grep -q "^# BEGIN EMBEDDED CODEX FUNCTIONS" "$rc"; then
+    sed -i.tmp '/# BEGIN EMBEDDED CODEX FUNCTIONS/,/# END EMBEDDED CODEX FUNCTIONS/d' "$rc"
+    rm -f "${rc}.tmp"
+    echo "Removed EMBEDDED CODEX FUNCTIONS block from $rc"
+  fi
+done
+
+# 2) Remove global playbooks (if present)
+rm -f "$HOME/.codex/playbooks/kiro.md" "$HOME/.codex/playbooks/bear.md" || true
+
+# 3) Remove kiro_*/bear_* profiles from ~/.codex/config.toml
+cfg="$HOME/.codex/config.toml"
+if [ -f "$cfg" ]; then
+  awk '
+    BEGIN{skip=0}
+    # Start skipping Kiro/Bear tiered profile sections and subtables
+    /^\[profiles\.(kiro|bear)_(min|low|mid|high)\]$/ {skip=1; next}
+    /^\[profiles\.(kiro|bear)_(min|low|mid|high)\./ {skip=1; next}
+    # On any new TOML table header, stop skipping
+    /^\[/ { if (skip==1) { skip=0 } }
+    skip==0 { print }
+  ' "$cfg" > "${cfg}.tmp" && mv "${cfg}.tmp" "$cfg"
+  echo "Pruned kiro_*/bear_* profiles from $cfg"
+fi
+
+# 4) Reload your shell to apply changes
+if [ -n "${ZSH_VERSION:-}" ]; then source "$HOME/.zshrc"; fi
+if [ -n "${BASH_VERSION:-}" ]; then source "$HOME/.bashrc" 2>/dev/null || true; fi
+```
+
+After cleanup, install using:
+
+```bash
+bash codex_interactive_embedded.sh
+```
+ - 2025-09-09
+### Changed
+- Consolidated installer script under a single name: `codex_interactive_embedded.sh`. Removed version suffixes in filenames to simplify README linking and user management.
+- Direct embedding into `~/.zshrc` or `~/.bashrc`, replacing the earlier approach of managing profiles via `--profile` flag.
+
+### Notes
+- Earlier v1.0.x attempts relied on `--profile` injection, which proved unreliable. This has been replaced by a direct-write strategy into the user's shell RC file for consistent function availability.
+- The script now provides intelligent reinstall/uninstall flows:
+  - Interactive overwrite/skip/delete choices on reinstall.
+  - Backup prompt with configurable directory on uninstall.
+  - Robust parsing of tier selections to eliminate "unknown tier" warnings.
+- Bash version check added: requires Bash >= 4.0. If older, users are given upgrade instructions (Homebrew on macOS, package manager on Linux).
+
 ## [1.0.5] - 2025-09-09
 ### Fixed
 - Alias functions now forward arguments reliably by preventing early expansion of "$@" when writing the alias block.
