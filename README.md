@@ -1,411 +1,95 @@
 <div align="center">
 
-# 🚀 Codex CLI Alias Installer for Kiro & Bear Agents
+# 🚀 Codex CLI Profiles: Kiro & Bear Agents
 
 [![Version](https://img.shields.io/github/v/release/bizzkoot/Codex-CLI_Kiro-Bear-Profiles?display_name=tag&sort=semver)](https://github.com/bizzkoot/Codex-CLI_Kiro-Bear-Profiles/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Bash](https://img.shields.io/badge/bash-3.2%2B-orange.svg)](https://www.gnu.org/software/bash/)
 [![macOS](https://img.shields.io/badge/macOS-compatible-brightgreen.svg)](https://www.apple.com/macos/)
 
-**A production-ready Bash installer for setting up *Kiro* and *Bear* agentic coding workflows with OpenAI Codex CLI.**
-
-*These agents implement Traceable Agentic Development (TAD) patterns optimized for software engineering teams.*
+**Production-ready installer for specialized AI coding agents that implement structured development workflows with OpenAI Codex CLI.**
 
 ---
 
 </div>
 
-## 📋 Table of Contents
+## What This Does
 
-- [🎯 What Are Kiro & Bear?](#-what-are-kiro--bear)
-- [🔄 Workflow Overview](#-workflow-overview)
-- [🚀 Quick Start](#-quick-start)
-- [📖 Usage Guide](#-usage-guide)
-- [⚙️ Installation](#️-installation)
-- [🎛️ Configuration](#️-configuration)
-- [🔧 Troubleshooting](#-troubleshooting)
-- [👥 Team Integration](#-team-integration)
-- [🤝 Contributing](#-contributing)
+This script sets up two complementary AI agent profiles:
 
----
+- **🎯 Kiro** - Strategic planner with gated approval workflow for requirements and design
+- **⚡ Bear** - Tactical executor with incremental implementation and safety checks
 
-## 🎯 What Are Kiro & Bear?
+Both agents work with tiered reasoning models and enforce role-based safety constraints.
 
-**Kiro** and **Bear** are specialized AI agent profiles designed to work together in a structured development workflow:
+## Quick Start
 
-### 🎯 Kiro - The Strategic Planner
-- **Purpose**: Requirements analysis and system design with strict gate controls
-- **Workflow**: Plan Preview → Requirements → Design → Tasks (with approval gates)
-- **Output**: Structured documentation (`requirements.md`, `design.md`, `tasks.md`)
-- **Best for**: New features, architectural changes, complex problem-solving
-
-### ⚡ Bear - The Tactical Executor  
-- **Purpose**: Task implementation with deliberate planning and safety checks
-- **Workflow**: Plan Preview → Risk Assessment → Incremental Execution (tests each step)
-- **Output**: Working code, tests, and incremental progress
-- **Best for**: Implementing predefined tasks, debugging, refactoring
-
-## 🔄 Workflow Overview
-
-### Decision Tree: Choose Your Approach
-
-```
-📋 New Feature Request
-         │
-    ┌────▼────┐
-    │ Choose  │
-    │Approach │
-    └─────────┘
-         │
-    ┌────┼────┐
-    ▼    ▼    ▼
-   🎯   ⚡   💬
- KIRO  BEAR Direct
-```
-
-| **When to Use** | **🎯 Kiro** | **⚡ Bear** | **💬 Direct Codex** |
-|---|---|---|---|
-| **Best For** | Planning & structure | Clear task definition | Simple questions |
-| **Purpose** | Requirements & design | Implementation | Quick answers |
-| **Output** | Documentation files | Working code | Direct response |
-
----
-
-### 🎯 **KIRO Workflow** - Strategic Planning
-
-<div align="center">
-
-```mermaid
-graph TD
-    A["/kiro 'Feature Name'"] --> B[Plan Preview]
-    B --> C[Requirements Preview]
-    C --> D{User Review}
-    D -->|✅ APPROVE| E[requirements.md]
-    D -->|🔄 REVISE| C
-    E --> F[Design Preview]
-    F --> G{User Review}
-    G -->|✅ APPROVE| H[design.md]
-    G -->|🔄 REVISE| F
-    H --> I[Tasks Preview]
-    I --> J{User Review}
-    J -->|✅ APPROVE| K[tasks.md]
-    J -->|🔄 REVISE| I
-    K --> L[🏁 Ready for Implementation]
-    
-    style A fill:#4A90E2,stroke:#2E5C8A,stroke-width:2px,color:#FFFFFF
-    style B fill:#F5F5F5,stroke:#999999,stroke-width:2px,color:#333333
-    style C fill:#F5F5F5,stroke:#999999,stroke-width:2px,color:#333333
-    style D fill:#FFE4B5,stroke:#D2691E,stroke-width:2px,color:#8B4513
-    style E fill:#90EE90,stroke:#228B22,stroke-width:2px,color:#006400
-    style F fill:#F5F5F5,stroke:#999999,stroke-width:2px,color:#333333
-    style G fill:#FFE4B5,stroke:#D2691E,stroke-width:2px,color:#8B4513
-    style H fill:#90EE90,stroke:#228B22,stroke-width:2px,color:#006400
-    style I fill:#F5F5F5,stroke:#999999,stroke-width:2px,color:#333333
-    style J fill:#FFE4B5,stroke:#D2691E,stroke-width:2px,color:#8B4513
-    style K fill:#90EE90,stroke:#228B22,stroke-width:2px,color:#006400
-    style L fill:#98FB98,stroke:#32CD32,stroke-width:3px,color:#006400
-```
-
-</div>
-
----
-
-### ⚡ **BEAR Workflow** - Tactical Execution
-
-<div align="center">
-
-```mermaid
-graph TD
-    A["/bear 'Task Description'"] --> B[Plan Preview]
-    B --> C[Risk Assessment]
-    C --> D{Plan Approval}
-    D -->|✅ APPROVE| E[Execute Step]
-    D -->|🔄 REVISE| B
-    E --> F[Validate Tests]
-    F --> G{More steps?}
-    G -->|Yes| E
-    G -->|No| H[✨ Working Implementation]
-    
-    style A fill:#8A2BE2,stroke:#4B0082,stroke-width:2px,color:#FFFFFF
-    style B fill:#F5F5F5,stroke:#999999,stroke-width:2px,color:#333333
-    style C fill:#F5F5F5,stroke:#999999,stroke-width:2px,color:#333333
-    style D fill:#FFE4B5,stroke:#D2691E,stroke-width:2px,color:#8B4513
-    style E fill:#DDA0DD,stroke:#8A2BE2,stroke-width:2px,color:#4B0082
-    style F fill:#DDA0DD,stroke:#8A2BE2,stroke-width:2px,color:#4B0082
-    style H fill:#98FB98,stroke:#32CD32,stroke-width:3px,color:#006400
-```
-
-</div>
-
----
-
-### 🔄 **Optional: Connecting Workflows**
-
-<div align="center">
-
-```mermaid
-graph LR
-    A[🏁 Kiro Complete] -.-> B[👤 User Reviews tasks.md]
-    B -.-> C[📋 Select Specific Task]
-    C -.-> D["/bear 'Implement task'"]
-    D -.-> E[⚡ Bear Execution]
-    
-    style A fill:#98FB98,stroke:#32CD32,stroke-width:2px,color:#006400
-    style B fill:#FFD700,stroke:#DAA520,stroke-width:2px,color:#8B6914
-    style C fill:#FFD700,stroke:#DAA520,stroke-width:2px,color:#8B6914
-    style D fill:#FFD700,stroke:#DAA520,stroke-width:2px,color:#8B6914
-    style E fill:#DDA0DD,stroke:#8A2BE2,stroke-width:2px,color:#4B0082
-```
-
-</div>
-
-**Why connect them?**
-- 🔗 Structured handoff between planning and execution
-- 📝 Full traceability from requirements to implementation  
-- 🎯 Consistent context across development phases
-- 👥 Better team coordination and knowledge sharing
-
----
-
-### 🎛️ **Model Tier Selection** (Both Agents)
-
-| **Command** | **Tier** | **Cost** | **Speed** | **Best For** |
-|-------------|----------|----------|-----------|--------------|
-| `/kiro-min` `/bear-min` | Minimal | 💰 Lowest | ⚡ Fastest | Quick tasks, simple queries |
-| `/kiro-low` `/bear-low` | Low | 💰 Low | ⚡ Fast | Standard development work |
-| `/kiro` `/bear` | Mid (default) | 💰 Balanced | ⚖️ Thorough | Complex features, planning |
-| `/kiro-high` `/bear-high` | High | 💰 Premium | 🎯 Most thorough | Critical systems, architecture |
-
-## When to Use Which Agent
-
-### Use Kiro When:
-- ✅ Starting a new feature or significant change
-- ✅ Requirements are unclear or need refinement  
-- ✅ Architecture decisions need to be made
-- ✅ You need structured documentation for team review
-- ✅ Working on complex, multi-step problems
-- ✅ Onboarding new team members (generates clear specs)
-
-### Use Bear When:
-- ✅ You have a clear task definition
-- ✅ Implementing from existing `tasks.md` 
-- ✅ Debugging specific issues
-- ✅ Refactoring well-understood code
-- ✅ Quick fixes or maintenance tasks
-- ✅ Following up on Kiro's planning phase
-
-### Reasoning Tier Selection
-
-Note: Tiers map to reasoning effort levels for the same model, not different model IDs. Defaults target `gpt-5` with effort controls per tier.
-
-| Tier | Effort | Best For | Cost | Speed |
-|------|--------|----------|------|-------|
-| **min** | `minimal` | Quick tasks, simple queries | Lowest | Fastest |
-| **low** | `low` | Standard development work | Low | Fast |
-| **mid** | `medium` | Complex features, planning | Medium | Balanced |
-| **high** | `high` | Critical systems, architecture | Highest | Most thorough |
-
----
-
-## 🚀 Quick Start
-
-> **Tip:** Download the latest installer directly:
 ```bash
+# Download and install
 curl -fsSL https://github.com/bizzkoot/Codex-CLI_Kiro-Bear-Profiles/releases/latest/download/install_codex_aliases.sh -o install_codex_aliases.sh
 bash install_codex_aliases.sh --fresh
-```
-
-### 1️⃣ Install & Setup
-```bash
-# Download and run the installer
-bash install_codex_aliases.sh
 
 # Reload your shell
 source ~/.zshrc  # or ~/.bashrc
+
+# Try it out
+/kiro "Plan a user authentication system"
+/bear "Implement login form component"
 ```
 
-### 2️⃣ Verify Installation
+## Agent Profiles
+
+### 🎯 Kiro - The Strategic Planner
+- **Purpose**: Requirements analysis and system design
+- **Safety**: Read-only sandbox, untrusted approvals (requires explicit user approval)
+- **Output**: Structured documentation (`requirements.md`, `design.md`, `tasks.md`)
+- **Workflow**: Plan → Requirements → Design → Tasks (with approval gates)
+
+### ⚡ Bear - The Tactical Executor
+- **Purpose**: Task implementation with deliberate execution
+- **Safety**: Workspace-write sandbox, on-request approvals
+- **Output**: Working code with incremental progress
+- **Workflow**: Plan → Risk Assessment → Execute → Validate (step-by-step)
+
+### Model Tiers
+
+Both agents support four reasoning effort levels:
+
+| Command | Tier | Speed | Cost | Best For |
+|---------|------|--------|------|----------|
+| `/kiro-min` `/bear-min` | Minimal | ⚡ Fastest | 💰 Lowest | Quick tasks, simple queries |
+| `/kiro-low` `/bear-low` | Low | ⚡ Fast | 💰 Low | Standard development work |
+| `/kiro` `/bear` | Mid (default) | ⚖️ Balanced | 💰 Medium | Complex features, planning |
+| `/kiro-high` `/bear-high` | High | 🎯 Thorough | 💰 Premium | Critical systems, architecture |
+
+## Workflow Examples
+
+### 🆕 New Feature Development
 ```bash
-/kiro --help    # Check Kiro is working
-/bear --help    # Check Bear is working
+# Step 1: Strategic planning with Kiro
+/kiro "Add OAuth2 user authentication"
+# → Generates requirements.md, design.md, tasks.md with approval gates
+
+# Step 2: Implementation with Bear
+/bear "Implement OAuth2 login endpoint from tasks.md"
+# → Executes with safety checks and incremental progress
 ```
 
-### 3️⃣ Your First Workflow
+### ⚡ Quick Implementation
 ```bash
-# Plan a feature with Kiro
-/kiro "Add user login system"
-
-# Implement a task with Bear  
-/bear "Create login form component"
+# Direct execution for defined tasks
+/bear-low "Fix validation error message typo"
 ```
 
-### 🔔 Profile Loaded Banner
-
-Whenever you run `/kiro` or `/bear`, a banner is printed first to confirm which profile is active:
-
-```text
-▶ Kiro profile loaded · tier=mid · model=gpt-5-medium · sandbox=read-only
-```
-
-Suppress banners with:
-
+### 🏗️ Architecture Design
 ```bash
-CODEX_QUIET=1 /kiro "…"
-```
-
-
----
-
-## ✨ Features
-
-<div align="center">
-
-| 🚀 **Production Ready** | 🖥️ **macOS Compatible** | 🔢 **Flexible Tiers** |
-|:---:|:---:|:---:|
-| [![Version](https://img.shields.io/github/v/release/bizzkoot/Codex-CLI_Kiro-Bear-Profiles?display_name=tag&sort=semver)](https://github.com/bizzkoot/Codex-CLI_Kiro-Bear-Profiles/releases) | Works with Bash 3.2+ | Choose by number or name |
-
-| 🤝 **Interactive Flow** | 📂 **Path Handling** | ✍️ **Embedded Playbooks** |
-|:---:|:---:|:---:|
-| Clear setup prompts | Spaces & `~` expansion | No external dependencies |
-
-| 🛡️ **Safe by Default** | 🎛️ **Multi-Tier Support** | 📋 **Gate-Controlled** |
-|:---:|:---:|:---:|
-| Asks before overwrite | Cost/performance options | Approval checkpoints |
-
-</div>
-
----
-
-## ⚙️ Installation
-
-<div align="center">
-
-### 📦 One-Line Installation
-
-```bash
-bash install_codex_aliases.sh
-```
-
-</div>
-
----
-
-## 🗑️ Uninstallation
-
-Remove installed aliases and global playbooks safely:
-
-```bash
-bash install_codex_aliases.sh --uninstall
-# Then reload your shell to drop functions
-source ~/.zshrc  # or ~/.bashrc
-```
-
-Notes
-- Uninstall removes alias blocks from your shell rc and deletes global playbooks in `~/.codex/playbooks/`.
-- It removes the installer’s `profiles.kiro_*` and `profiles.bear_*` entries from `~/.codex/config.toml` (a timestamped backup is created).
-- It detects and removes any previously installed alias blocks regardless of version.
-
----
-
-## 📖 Usage Guide
-
-### 🖱️ Interactive Mode (Recommended)
-
-<div align="center">
-
-| Step | Action | Example |
-|:---:|:---|:---|
-| 1️⃣ | **Choose tiers to install** | `2,3` → low + mid |
-| 2️⃣ | **Decide on fresh global setup** | profiles + shell functions |
-| 3️⃣ | **Provide model IDs** | defaults prefilled |
-| 4️⃣ | **Confirm playbook overwrites** | if existing files present |
-| 5️⃣ | **Reload shell config** | `source ~/.zshrc` |
-
-</div>
-
-### ⚡ Non-Interactive Mode (Automation)
-
-<div align="center">
-
-| Command | Purpose |
-|:---|:---|
-| `--fresh` | Fresh setup with defaults |
-| `--repo /path --force` | Install playbooks into repository |
-| `CODEX_TIERS=mid,high --fresh` | Custom tier selection |
-
-</div>
-
-```bash
-# Examples
-install_codex_aliases.sh --fresh
-install_codex_aliases.sh --repo /path/to/repo --force  
-CODEX_TIERS=mid,high install_codex_aliases.sh --fresh
-```
-
-## Aliases Installed
-
-### Default Aliases (Mid-Tier)
-- `/kiro` → Kiro planning agent (mid tier default)
-- `/bear` → Bear execution agent (mid tier default)
-
-### Tier-Specific Aliases
-- `/kiro-min`, `/bear-min` → Minimal models for quick tasks
-- `/kiro-low`, `/bear-low` → Low-cost models for standard work  
-- `/kiro-mid`, `/bear-mid` → Balanced models for complex features
-- `/kiro-high`, `/bear-high` → Premium models for critical systems
-
-Check them after install:
-```bash
-/kiro --help    # or any alias to verify installation
-```
-
----
-
-## 💼 Example Workflows
-
-<div align="center">
-
-### 🆕 Scenario 1: New Feature Development
-
-</div>
-
-```bash
-# 🎯 Step 1: Plan with Kiro
-/kiro "Add user authentication with OAuth2"
-# ↳ Generates requirements.md, design.md, tasks.md with approval gates
-
-# ⚡ Step 2: Execute with Bear
-/bear "Implement OAuth2 login endpoint from tasks.md" 
-# ↳ Executes specific task with safety checks
-```
-
-<div align="center">
-
-### ⚡ Scenario 2: Quick Fix
-
-</div>
-
-```bash
-# Direct execution for simple tasks
-/bear-low "Fix the typo in user validation error message"
-```
-
-<div align="center">
-
-### 🏗️ Scenario 3: Architecture Review
-
-</div>
-
-```bash
-# Use high-tier for complex architectural decisions
+# High-tier reasoning for complex decisions
 /kiro-high "Design microservice architecture for payment processing"
 ```
 
 ## Workflow Deep Dive
 
 ### Kiro's Three-Gate Process
-
-<div align="center">
 
 ```mermaid
 sequenceDiagram
@@ -430,11 +114,7 @@ sequenceDiagram
     K->>U: Ready for execution
 ```
 
-</div>
-
 ### Bear's Planning-to-Execution Flow
-
-<div align="center">
 
 ```mermaid
 sequenceDiagram
@@ -452,163 +132,167 @@ sequenceDiagram
     end
 ```
 
-</div>
+## Installation Options
 
-## Quality Gates & Safety
+### Interactive Mode (Recommended)
+```bash
+bash install_codex_aliases.sh
+```
+Follow prompts to select tiers and configure profiles.
 
-### Kiro Safety Features
-- **No execution in thinking phase** — prevents premature action
-- **Preview before write** — every document reviewed before creation
-- **EARS requirement format** — structured, testable acceptance criteria
-- **Traceability mapping** — links requirements to implementation
+### Non-Interactive Mode
+```bash
+# Fresh install with defaults
+bash install_codex_aliases.sh --fresh
 
-### Bear Safety Features  
-- **Risk assessment first** — identifies potential issues upfront
-- **Step-by-step execution** — incremental progress with checkpoints
-- **Test-driven approach** — validates each change
-- **Rollback-friendly** — designed for safe iteration
+# Custom tier selection
+CODEX_TIERS="mid,high" bash install_codex_aliases.sh --fresh
+
+# Repository setup (for teams)
+bash install_codex_aliases.sh --repo /path/to/project --force
+
+# Quiet mode (suppress banners)
+bash install_codex_aliases.sh --fresh --quiet
+```
+
+### Command Options
+| Option | Description |
+|--------|-------------|
+| `--fresh` | Fresh global setup (profiles + aliases) |
+| `--repo PATH` | Install to project directory |
+| `--force` | Overwrite existing configurations |
+| `--quiet` | Suppress profile loaded banners |
+| `--no-aliases` | Install profiles only (no shell aliases) |
+| `--version` | Show script version |
+
+## What Gets Installed
+
+### Profiles (in `~/.codex/config.toml`)
+```toml
+[profiles.kiro-mid]
+model = "gpt-5-medium"
+sandbox_mode = "read-only"
+approval_mode = "untrusted"
+
+[profiles.bear-mid]
+model = "gpt-5-medium"
+sandbox_mode = "workspace-write"
+approval_mode = "on-request"
+```
+
+### Shell Aliases
+- **Default**: `/kiro`, `/bear` (mid-tier)
+- **Tiered**: `/kiro-min`, `/kiro-low`, `/kiro-mid`, `/kiro-high`
+- **Tiered**: `/bear-min`, `/bear-low`, `/bear-mid`, `/bear-high`
+
+### Banner Display
+```text
+▶ Kiro profile loaded · tier=mid · model=gpt-5-medium · sandbox=read-only
+```
+
+Suppress with: `CODEX_QUIET=1 /kiro "..."`
 
 ## Requirements
 
-- **Bash 3.2+** (default on macOS is supported)
-- **[OpenAI Codex CLI](https://github.com/openai/codex-cli)** installed and available in `PATH`
+- **Bash 3.2+** (macOS compatible)
+- **[OpenAI Codex CLI](https://github.com/openai/codex-cli)** installed and authenticated
 - **OpenAI API access** with appropriate model permissions
-- **Git** (recommended for version control integration)
 
 ## Configuration
 
-### Environment Overrides (Non-Interactive)
+### Environment Variables
 ```bash
-export CODEX_MODEL="gpt-5"
-export CODEX_REASONING_MIN="minimal"
-export CODEX_REASONING_LOW="low"
-export CODEX_REASONING_MID="medium"
-export CODEX_REASONING_HIGH="high"
-export CODEX_TIERS="mid,high"  # Install subset
+export CODEX_TIERS="low,mid,high"      # Install subset of tiers
+export CODEX_QUIET=1                   # Suppress banners globally
 ```
 
-### Post-Installation Setup
-The installer creates profiles in `~/.codex/config.toml`:
-```toml
-[profiles.kiro_mid]
-prompt_files = ["codex/kiro.md"]
-model = "gpt-5"
-model_reasoning_effort = "medium"
-
-[profiles.bear_mid]  
-prompt_files = ["codex/bear.md"]
-model = "gpt-5"
-model_reasoning_effort = "medium"
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**"Codex CLI not found"**
+### Model Customization
+Override default models per tier:
 ```bash
-npm install -g @openai/codex
-# or
-brew install codex
-```
-
-**"No such profile"**
-```bash
-# Verify profiles exist
-cat ~/.codex/config.toml | grep -A2 "\[profiles\."
-```
-
-**"Playbooks not found"**
-```bash
-# Ensure playbooks are in the right location
-ls -la codex/
-# Should show kiro.md and bear.md
-```
-
-**Session not resuming properly**
-```bash
-# Codex CLI currently has limited session persistence
-# Work within single sessions for best results
-# Track progress in your generated .md files
+export CODEX_MODEL_KIRO_MID="gpt-5-custom"
+export CODEX_MODEL_BEAR_HIGH="gpt-5-premium"
 ```
 
 ## Team Integration
 
 ### Repository Setup
 ```bash
-# Install playbooks in your project
-./install_codex_aliases.sh --repo . --force
-
-# Commit the playbooks for team sharing
+# Install profiles in project for team sharing
+bash install_codex_aliases.sh --repo . --force
 git add codex/
-git commit -m "Add Kiro & Bear agent playbooks"
+git commit -m "Add Kiro & Bear agent profiles"
 ```
 
-### Team Standards
+### Best Practices
 - Use **Kiro** for all new feature planning
-- Use **Bear** for implementation and maintenance  
-- **Review generated specs** before approval
-- **Version control all artifacts** (requirements.md, design.md, tasks.md)
-- **Choose appropriate tiers** based on complexity and budget
+- Use **Bear** for implementation and maintenance
+- Review generated specs before approval
+- Version control all artifacts (`.md` files)
+- Choose appropriate tiers based on complexity and budget
 
----
+## Safety Features
 
+### Kiro Safety
+- **Read-only sandbox** - Cannot modify files during planning
+- **Untrusted approval mode** - Requires explicit user approval for each step
+- **Preview-before-write** - Shows content before creating files
+- **Structured workflow** - Enforced requirements → design → tasks progression
 
-## 🔧 Advanced Features
+### Bear Safety
+- **Risk assessment first** - Identifies potential issues upfront
+- **Incremental execution** - Step-by-step progress with validation
+- **Test-driven approach** - Validates each change
+- **Rollback-friendly** - Designed for safe iteration
 
-### Role-based Enforcement
-- **Kiro Profiles**: `approval_policy = "untrusted"`, `sandbox_mode = "read-only"`  
-- **Bear Profiles**: `approval_policy = "on-request"`, `sandbox_mode = "workspace-write"`
+## Troubleshooting
 
-### File Opener Selection
-You can choose the default app Codex CLI uses for clickable file links.
+### Common Issues
 
-Allowed values: `vscode` (default) · `vscode-insiders` · `windsurf` · `cursor` · `none`
-
-Example:
+**"codex CLI not found"**
 ```bash
-./install_codex_aliases.sh --fresh --file-opener cursor
+npm install -g @openai/codex-cli
+# or follow installation guide at: https://github.com/openai/codex-cli
 ```
 
-### Kiro → Bear Handoff
-After `tasks.md` is written, Kiro prints a ready-to-paste handoff line:
-
+**"No such profile"**
 ```bash
-SWITCH TO BEAR: /bear-mid "<ABSOLUTE_PATH_TO_tasks.md>"
+# Verify profiles exist
+grep -A2 "\[profiles\." ~/.codex/config.toml
 ```
 
+**Aliases not working after install**
+```bash
+# Reload your shell configuration
+source ~/.zshrc  # or ~/.bashrc
+```
 
-## 🤝 Contributing
+### Uninstallation
+```bash
+bash install_codex_aliases.sh --uninstall
+source ~/.zshrc  # Reload shell to remove functions
+```
+
+## Contributing
 
 <div align="center">
 
-This is an experimental implementation of **TAD (Traceable Agentic Development)** patterns.
+This is an experimental implementation of **Traceable Agentic Development (TAD)** patterns. We welcome contributions!
 
-**We welcome contributions! 🎉**
-
-| Type | Welcome |
-|:---:|:---|
-| 🐛 | Bug reports and fixes |
-| 💡 | Workflow improvements |
-| 📚 | Documentation enhancements |
-| 🔧 | Additional safety features |
+- 🐛 Bug reports and fixes
+- 💡 Workflow improvements  
+- 📚 Documentation enhancements
+- 🔧 Additional safety features
 
 </div>
 
----
-
-## 📄 License
+## License
 
 <div align="center">
 
-**MIT License**
-
-*Use at your own risk.*
+MIT License - Use at your own risk.
 
 ---
 
-### **Happy coding with structured AI agents! 🚀**
-
-*Built with ❤️ for the developer community*
+**Built for structured AI development workflows** 🚀
 
 </div>
