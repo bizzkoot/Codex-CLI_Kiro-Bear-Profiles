@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.5] - 2025-09-09
+### Fixed
+- Alias functions now forward arguments reliably by preventing early expansion of "$@" when writing the alias block.
+- Uninstall removes alias block regardless of versioned markers (version-agnostic BEGIN/END matching).
+- Profile overwrite on macOS: replace awk state variable `in` with `inside` to avoid BSD awk reserved keyword error.
+
+### Changed
+- Use unversioned alias block markers and add a separate version comment line for traceability.
+- Unify Kiro/Bear playbooks via shared templates; repo and global playbooks now have identical content generated from a single source.
+
+### Documentation
+- README: update badges, simplify install commands to `install_codex_aliases.sh`, add uninstall section and advanced notes.
+- .gitignore: ignore `scripts/` (tools) and keep repository noise low.
+
 ## [1.0.4] - 2025-09-08
 ### Changed
 - Bumped release to `v1.0.4`; installer renamed to `install_codex_aliases-1.0.4.sh` and internal `VERSION=1.0.4`.

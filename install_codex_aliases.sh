@@ -7,7 +7,7 @@ if [ -z "${BASH_VERSION:-}" ]; then
   exit 1
 fi
 
-VERSION="1.0.4"
+VERSION="1.0.5"
 SCRIPT_NAME="install_codex_aliases-${VERSION}.sh"
 
 # ───────────────────────── helpers ─────────────────────────
@@ -19,10 +19,11 @@ err(){ ce "❌ $*"; }
 sep(){ ce "────────────────────────────────────────────────────"; }
 
 usage() {
-  cat <<'EOF'
-install_codex_aliases.sh  v1.0.4  (Codex CLI native, gpt-5 with tiered reasoning)
+  # Use current VERSION in banner (no hardcoded version)
+  cat <<EOF
+install_codex_aliases.sh  v${VERSION}  (Codex CLI native, gpt-5 with tiered reasoning)
 
-What's in 1.0.4:
+Highlights:
   • Kiro STRICT: read-only, writes only requirements.md, design.md, tasks.md with DECIDE → APPROVE | REVISE | CANCEL.
   • Bear APPLY? gate (optional), allows AUTO to continue ungated.
   • Handoff line after tasks.md write:
@@ -187,11 +188,11 @@ ensure_profiles_for_tier() {
         local escaped_name
         escaped_name="$(printf "%s" "${name}" | sed 's/\./\\./g')"
         awk -v section="profiles.${escaped_name}" '
-          BEGIN { in=0 }
-          $0 ~ "^\[" section "\]$" { in=1; next }
-          $0 ~ "^\[" section "\." { in=1; next }
-          /^\[/ { in=0 }
-          !in { print }
+          BEGIN { inside=0 }
+          $0 ~ "^\[" section "\]$" { inside=1; next }
+          $0 ~ "^\[" section "\." { inside=1; next }
+          /^\[/ { inside=0 }
+          !inside { print }
         ' "$cfg" > "${cfg}.tmp" && mv "${cfg}.tmp" "$cfg"
       else
         info "Keeping existing profile [${name}]"
@@ -292,48 +293,56 @@ write_global_file_opener() {
   ok "Set global file_opener = \"${FILE_OPENER}\" in $cfg"
 }
 
+codex_cli_capabilities() {
+  # Echoes two flags: HAS_CHAT HAS_DRY_RUN (1/0)
+  local has_chat=0 has_dry_run=0
+  if codex chat --help >/dev/null 2>&1; then
+    has_chat=1
+    if codex chat --help 2>&1 | grep -q -- "--dry-run"; then
+      has_dry_run=1
+    fi
+  fi
+  echo "$has_chat $has_dry_run"
+}
+
 # --- Optional health checks ---
 verify_sandbox_config() {
   local p="$1"
-  info "Verifying sandbox mode for profile: $p"
+  info "Verifying profile reachable (dry-run): $p"
   if ! command -v codex >/dev/null 2>&1; then
     warn "Codex not available for verification"
     return 1
   fi
-  local status_output
-  if status_output=$(codex --profile "$p" --dry-run 2>&1); then
-    if echo "$status_output" | grep -qi "Sandbox: workspace-write"; then
-      ok "Profile $p correctly configured for workspace-write"
-    elif echo "$status_output" | grep -qi "Sandbox: read-only"; then
-      if [[ "$p" == kiro_* ]]; then
-        ok "Profile $p correctly configured for read-only (Kiro)"
-      else
-        warn "Profile $p appears read-only but expected workspace-write (Bear)"
-        ce "   Try: codex --profile $p --sandbox workspace-write"
-      fi
+  read -r HAS_CHAT HAS_DRY_RUN < <(codex_cli_capabilities)
+  if [[ "$HAS_CHAT" -eq 1 && "$HAS_DRY_RUN" -eq 1 ]]; then
+    if codex chat --profile "$p" --dry-run >/dev/null 2>&1; then
+      ok "Profile $p is reachable (dry-run succeeded)"
     else
-      ce "$status_output"
-      warn "Could not determine sandbox mode from output above"
+      warn "Dry-run failed for profile $p (model or profile config may be invalid)"
     fi
   else
-    warn "Could not verify profile $p (may not exist yet)"
-    return 1
+    info "Skipping profile dry-run: this Codex CLI does not support 'chat --dry-run'"
   fi
 }
 
 check_model_availability() {
   local primary_model="${1:-gpt-5}"
   local fallback_model="${CODEX_FALLBACK_MODEL:-o4-mini}"
-  if ! codex --model "$primary_model" --dry-run >/dev/null 2>&1; then
-    warn "Model '$primary_model' may not be available"
-    if codex --model "$fallback_model" --dry-run >/dev/null 2>&1; then
-      info "Fallback model '$fallback_model' appears available"
-      ce "   Consider setting CODEX_MODEL='$fallback_model' and rerunning"
+  read -r HAS_CHAT HAS_DRY_RUN < <(codex_cli_capabilities)
+  if [[ "$HAS_CHAT" -eq 1 && "$HAS_DRY_RUN" -eq 1 ]]; then
+    if codex chat --model "$primary_model" --dry-run >/dev/null 2>&1; then
+      ok "Model '$primary_model' appears available"
     else
-      warn "Neither primary nor fallback model appears available"
+      warn "Model '$primary_model' may not be available"
+      if codex chat --model "$fallback_model" --dry-run >/dev/null 2>&1; then
+        info "Fallback model '$fallback_model' appears available"
+        ce "   Consider setting CODEX_MODEL='$fallback_model' and rerunning"
+      else
+        warn "Neither primary nor fallback model appears available"
+      fi
     fi
   else
-    ok "Model '$primary_model' appears available"
+    info "Skipping model probe: this Codex CLI does not support 'chat --dry-run'"
   fi
 }
 
@@ -357,38 +366,38 @@ install_shell_block() {
   [[ -f "$rcfile" ]] || : > "$rcfile"
   cp "$rcfile" "${rcfile}.bak.$(date +%Y%m%d-%H%M%S)"
 
-  local begin_marker="# BEGIN CODEX ALIASES v${VERSION}"
-  local end_marker="# END CODEX ALIASES v${VERSION}"
+  local begin_marker="# BEGIN CODEX ALIASES"
+  local end_marker="# END CODEX ALIASES"
 
-  # Remove existing block (idempotent)
-  if grep -q "$begin_marker" "$rcfile" 2>/dev/null; then
-    awk -v begin="$begin_marker" -v end="$end_marker" '
-      $0 == begin {flag=1}
-      !flag {print}
-      $0 == end {flag=0}
-    ' "$rcfile" > "${rcfile}.tmp"
-    mv "${rcfile}.tmp" "$rcfile"
+  # Remove any existing alias blocks from any version (idempotent)
+  if grep -q "^# BEGIN CODEX ALIASES" "$rcfile" 2>/dev/null; then
+    awk '
+      /^# BEGIN CODEX ALIASES/ {skip=1}
+      skip==0 {print}
+      /^# END CODEX ALIASES/ {skip=0}
+    ' "$rcfile" > "${rcfile}.tmp" && mv "${rcfile}.tmp" "$rcfile"
   fi
 
   cat >> "$rcfile" <<EOF
 $begin_marker
+# CODEX ALIASES version: ${VERSION}
 # Aliases call Codex profiles; profiles define repo-first prompt_files with a global fallback.
 
 alias /codex-aliases='alias | grep -E "^/(kiro|bear)" | sort'
 
 # Kiro (planning & artifacts)
-/kiro()       { codex --profile kiro_mid  "$@"; }
-/kiro-min()   { codex --profile kiro_min  "$@"; }
-/kiro-low()   { codex --profile kiro_low  "$@"; }
-/kiro-mid()   { codex --profile kiro_mid  "$@"; }
-/kiro-high()  { codex --profile kiro_high "$@"; }
+/kiro()       { codex --profile kiro_mid  "\$@"; }
+/kiro-min()   { codex --profile kiro_min  "\$@"; }
+/kiro-low()   { codex --profile kiro_low  "\$@"; }
+/kiro-mid()   { codex --profile kiro_mid  "\$@"; }
+/kiro-high()  { codex --profile kiro_high "\$@"; }
 
 # Bear (implementation & diffs)
-/bear()       { codex --profile bear_mid  "$@"; }
-/bear-min()   { codex --profile bear_min  "$@"; }
-/bear-low()   { codex --profile bear_low  "$@"; }
-/bear-mid()   { codex --profile bear_mid  "$@"; }
-/bear-high()  { codex --profile bear_high "$@"; }
+/bear()       { codex --profile bear_mid  "\$@"; }
+/bear-min()   { codex --profile bear_min  "\$@"; }
+/bear-low()   { codex --profile bear_low  "\$@"; }
+/bear-mid()   { codex --profile bear_mid  "\$@"; }
+/bear-high()  { codex --profile bear_high "\$@"; }
 $end_marker
 EOF
 
@@ -396,7 +405,91 @@ EOF
   ce "To load them now, run: source \"$rcfile\""
 }
 
-# ───────────────────────── playbooks (global + repo) ─────────────────────────
+# ───────────────────────── playbooks (shared templates + writers) ─────────────────────────
+render_kiro_template() {
+  cat <<'KIRO_EOF'
+# Kiro (Codex CLI) — STRICT Planning & Artifacts (No Chain-of-Thought)
+
+Startup
+🛑 MUST: The first line of your FIRST assistant message is exactly:
+  Profile /kiro loaded
+  - Print it on its own line, with no leading/trailing spaces.
+  - Do NOT include any text, emojis, markdown, or code fences before it.
+  - Immediately after, continue with your normal response.
+  - If you fail to print it first, immediately correct by printing that exact line on the next line, then proceed.
+
+**Runtime:** Codex CLI profile `kiro_*` (model: gpt-5, reasoning: tiered).
+**Goal:** Maintain `requirements.md`, `design.md`, `tasks.md` via preview → APPROVE/REVISE → write loops.
+**Resumable:** On re-run, read existing files and propose concise diffs.
+
+## HARD RULE — NEVER edit code files
+Kiro must not create/modify/delete code files. It only writes these artifacts after APPROVE:
+- `requirements.md`
+- `design.md`
+- `tasks.md`
+
+If the user asks to modify code, reply with a single line:
+SWITCH TO BEAR: /bear-mid "<ABSOLUTE_PATH_TO_tasks.md>"
+
+## Behavior
+- Be concise. Do not print chain-of-thought. Ask ≤2 clarifying questions only if essential.
+- Prefer EARS-style requirements; keep traceability light.
+- When updating, show a minimal diff before writing.
+- Always re-read existing markdowns and update incrementally.
+
+## Flow
+1) Requirements PREVIEW (bulleted): scope, constraints, acceptance criteria (IDs).
+   Wait for APPROVE or REVISE. If APPROVE → write `requirements.md`.
+2) Design PREVIEW (bulleted): components, integration points, risks/mitigations.
+   Wait for APPROVE or REVISE. If APPROVE → write `design.md`.
+3) Tasks PREVIEW: numbered, small, testable tasks, reference AC IDs.
+   Wait for APPROVE or REVISE. If APPROVE → write/merge `tasks.md`.
+
+After writing/merging `tasks.md`, output a ready-to-paste handoff line (using the absolute path):
+SWITCH TO BEAR: /bear-mid "<ABSOLUTE_PATH_TO_tasks.md>"
+
+## Decision Prompt
+At the end of each PREVIEW, include exactly:
+DECIDE → Reply exactly with one of:
+- APPROVE
+- REVISE: <your changes or constraints>
+- CANCEL
+KIRO_EOF
+}
+
+render_bear_template() {
+  cat <<'BEAR_EOF'
+# Bear (Codex CLI) — Lean Executor (No Chain-of-Thought)
+
+Startup
+🛑 MUST: The first line of your FIRST assistant message is exactly:
+  Profile /bear loaded
+  - Print it on its own line, with no leading/trailing spaces.
+  - Do NOT include any text, emojis, markdown, or code fences before it.
+  - Immediately after, continue with your normal response.
+  - If you fail to print it first, immediately correct by printing that exact line on the next line, then proceed.
+
+**Runtime:** Codex CLI profile `bear_*` (model: gpt-5, reasoning: tiered).
+**Purpose:** Implement tasks from `tasks.md` (or a provided task) with small patches and quick validation.
+
+## Behavior
+- Be concise. Do not print chain-of-thought.
+- Start with a micro-plan (3–6 bullets). Reference `tasks.md` item IDs.
+- Produce patch-ready diffs (unified) or exact file blocks; favor small, testable increments.
+- Run/validate when appropriate; summarize results; propose the next step.
+
+## Optional Confirmation (for risky/large changes)
+Show the diff first, then wait:
+APPLY? → Reply exactly with:
+- APPLY
+- REVISE: <what to change>
+- CANCEL
+
+If the user replies AUTO once in this run, proceed without further confirmations.
+BEAR_EOF
+}
+
+# Writers using the shared templates
 write_playbooks_global() {
   mkdir -p "$CODEX_PLAYBOOK_DIR"
   local kiro_dst="$KIRO_PB_GLOBAL"
@@ -411,46 +504,7 @@ write_playbooks_global() {
     esac
   fi
   if [[ -z "${__skip_kiro:-}" ]]; then
-    cat > "$kiro_dst" <<'KIRO_EOF'
-# Kiro (Codex CLI) — STRICT Planning & Artifacts (No Chain-of-Thought)
-
-**Runtime:** Codex CLI profile `kiro_*` (model: gpt-5, reasoning: tiered).  
-**Goal:** Maintain `requirements.md`, `design.md`, `tasks.md` via **preview → APPROVE/REVISE → write** loops.  
-**Resumable:** On re-run, read existing files and propose concise diffs.
-
-## HARD RULE — NEVER edit code files
-Kiro must **not** create/modify/delete code files. It only writes these artifacts after APPROVE:
-- `requirements.md`
-- `design.md`
-- `tasks.md`
-
-If the user asks to modify code, reply with a single line:
-`SWITCH TO BEAR: /bear-mid "<ABSOLUTE_PATH_TO_tasks.md>"`
-
-## Behavior
-- Be concise. Do **not** print chain-of-thought. Ask ≤2 clarifying questions only if essential.
-- Prefer EARS-style requirements; keep traceability light.
-- When updating, show a minimal diff before writing.
-- Always re-read existing markdowns and update incrementally.
-
-## Flow
-1) **Requirements PREVIEW** (bulleted): scope, constraints, acceptance criteria (IDs).  
-   Wait for **APPROVE** or **REVISE**. If APPROVE → write `requirements.md`.
-2) **Design PREVIEW** (bulleted): components, integration points, risks/mitigations.  
-   Wait for **APPROVE** or **REVISE**. If APPROVE → write `design.md`.
-3) **Tasks PREVIEW**: numbered, small, testable tasks, reference AC IDs.  
-   Wait for **APPROVE** or **REVISE**. If APPROVE → write/merge `tasks.md`.
-
-After writing/merging `tasks.md`, output a ready-to-paste handoff line (using the **absolute** path):
-`SWITCH TO BEAR: /bear-mid "<ABSOLUTE_PATH_TO_tasks.md>"`
-
-## Decision Prompt
-At the end of each PREVIEW, include exactly:
-DECIDE → Reply exactly with one of:
-- APPROVE
-- REVISE: <your changes or constraints>
-- CANCEL
-KIRO_EOF
+    render_kiro_template > "$kiro_dst"
     ok "Wrote $kiro_dst"
   fi
 
@@ -463,27 +517,7 @@ KIRO_EOF
     esac
   fi
   if [[ -z "${__skip_bear:-}" ]]; then
-    cat > "$bear_dst" <<'BEAR_EOF'
-# Bear (Codex CLI) — Lean Executor (No Chain-of-Thought)
-
-**Runtime:** Codex CLI profile `bear_*` (model: gpt-5, reasoning: tiered).  
-**Purpose:** Implement tasks from `tasks.md` (or a provided task) with small patches and quick validation.
-
-## Behavior
-- Be concise. Do not print chain-of-thought.
-- Start with a **micro-plan** (3–6 bullets). Reference `tasks.md` item IDs.
-- Produce **patch-ready diffs** (unified) or exact file blocks; favor small, testable increments.
-- Run/validate when appropriate; summarize results; propose the next step.
-
-## Optional Confirmation (for risky/large changes)
-Show the diff first, then wait:
-APPLY? → Reply exactly with:
-- APPLY
-- REVISE: <what to change>
-- CANCEL
-
-If the user replies `AUTO` once in this run, proceed without further confirmations.
-BEAR_EOF
+    render_bear_template > "$bear_dst"
     ok "Wrote $bear_dst"
   fi
 }
@@ -505,12 +539,7 @@ write_playbooks_to_repo() {
     fi
   fi
   if [[ -z "${__skip_kiro:-}" ]]; then
-    cat > "$kiro_dst" <<'KIRO_EOF'
-# Kiro (Repo Prompt) — Project-First
-Follows the STRICT global rules. If absent, Codex falls back to ~/.codex/playbooks/kiro.md.
-After writing tasks.md, output:
-SWITCH TO BEAR: /bear-mid "<ABSOLUTE_PATH_TO_tasks.md>"
-KIRO_EOF
+    render_kiro_template > "$kiro_dst"
     ok "Wrote $kiro_dst"
   fi
 
@@ -523,10 +552,7 @@ KIRO_EOF
     fi
   fi
   if [[ -z "${__skip_bear:-}" ]]; then
-    cat > "$bear_dst" <<'BEAR_EOF'
-# Bear (Repo Prompt) — Project-First
-Follows the Lean Executor rules. Optional APPLY? gate for risky changes.
-BEAR_EOF
+    render_bear_template > "$bear_dst"
     ok "Wrote $bear_dst"
   fi
 }
@@ -581,18 +607,33 @@ uninstall_everything() {
   ok "Removed global playbooks (if present)."
 
   local rcfile; rcfile="$(detect_shell_rc)"
-  local begin_marker="# BEGIN CODEX ALIASES v${VERSION}"
-  local end_marker="# END CODEX ALIASES v${VERSION}"
-  if grep -q "$begin_marker" "$rcfile" 2>/dev/null; then
-    awk -v begin="$begin_marker" -v end="$end_marker" '
-      $0 == begin {flag=1}
-      !flag {print}
-      $0 == end {flag=0}
-    ' "$rcfile" > "${rcfile}.tmp"
-    mv "${rcfile}.tmp" "$rcfile"
-    ok "Removed alias block from $rcfile"
+  if grep -q "^# BEGIN CODEX ALIASES" "$rcfile" 2>/dev/null; then
+    awk '
+      /^# BEGIN CODEX ALIASES/ {skip=1}
+      skip==0 {print}
+      /^# END CODEX ALIASES/ {skip=0}
+    ' "$rcfile" > "${rcfile}.tmp" && mv "${rcfile}.tmp" "$rcfile"
+    ok "Removed alias block(s) from $rcfile"
   else
     warn "Alias block not found in $rcfile"
+  fi
+
+  # Remove installed profiles from ~/.codex/config.toml
+  local cfg="${HOME}/.codex/config.toml"
+  if [[ -f "$cfg" ]]; then
+    info "Removing installed profiles from $cfg"
+    cp "$cfg" "${cfg}.bak.$(date +%Y%m%d-%H%M%S)"
+    awk '
+      BEGIN{skip=0}
+      /^\[profiles\.(kiro|min|low|mid|high)/ { }
+      # Start skipping when a Kiro/Bear tiered profile section or its subtables begin
+      /^\[profiles\.(kiro|bear)_(min|low|mid|high)\]$/ {skip=1; next}
+      /^\[profiles\.(kiro|bear)_(min|low|mid|high)\./ {skip=1; next}
+      # On any new TOML table header, stop skipping
+      /^\[/ { if (skip==1) { skip=0 } }
+      skip==0 { print }
+    ' "$cfg" > "${cfg}.tmp" && mv "${cfg}.tmp" "$cfg"
+    ok "Removed kiro_*/bear_* profiles from $cfg"
   fi
 }
 
@@ -629,8 +670,8 @@ main() {
       warn "No ~/.codex/config.toml found"
     fi
     local rcfile; rcfile="$(detect_shell_rc)"
-    ce "Shell RC: $rcfile"
-    local begin_marker="# BEGIN CODEX ALIASES v${VERSION}"
+  ce "Shell RC: $rcfile"
+    local begin_marker="# BEGIN CODEX ALIASES"
     if grep -q "$begin_marker" "$rcfile" 2>/dev/null; then ok "Alias block present"; else warn "Alias block not found"; fi
     exit 0
   fi
@@ -686,6 +727,19 @@ main() {
     REPO_PATH_INPUT="$(normalize_path "$REPO_PATH_INPUT")"
     [[ -d "$REPO_PATH_INPUT" ]] || { err "Path does not exist: $REPO_PATH_INPUT"; exit 1; }
     write_playbooks_to_repo "$REPO_PATH_INPUT"
+  elif [[ $INTERACTIVE -eq 1 ]]; then
+    # Offer to install repo playbooks interactively
+    if [[ "$(ask_yes_no 'Also install repo playbooks into a project folder?' 'Y')" == "Y" ]]; then
+      local repo_ans
+      read -r -p "Enter project folder path [default: $(pwd)]: " repo_ans || true
+      repo_ans="${repo_ans:-$(pwd)}"
+      repo_ans="$(normalize_path "$repo_ans")"
+      if [[ -d "$repo_ans" ]]; then
+        write_playbooks_to_repo "$repo_ans"
+      else
+        warn "Provided path does not exist: $repo_ans (skipping repo playbooks)"
+      fi
+    fi
   fi
 
   sep
