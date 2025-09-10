@@ -4,8 +4,7 @@
 
 set -euo pipefail
 
-
-# ───────────────────────── Bash Version Check ─────────────────────────
+# ─────────────────────────── Bash Version Check ───────────────────────────
 # We require Bash >= 4.0 (associative arrays + readarray). macOS ships 3.2 by default.
 # If your version is older, follow the printed instructions.
 if [[ -z "${BASH_VERSION:-}" ]]; then
@@ -33,10 +32,10 @@ EOBASH
   exit 1
 fi
 
-VERSION="2.0.0"
+VERSION="2.0.1"
 SCRIPT_NAME="enhanced_embedded_profiles-${VERSION}.sh"
 
-# ───────────────────────── helpers ─────────────────────────
+# ─────────────────────────── helpers ───────────────────────────
 ce(){ printf "%s\n" "$*" >&2; }
 info(){ ce "👉 $*"; }
 ok(){ ce "✅ $*"; }
@@ -65,6 +64,7 @@ Usage:
   $0 --quiet                  # Silent installation
   $0 --uninstall              # Remove functions
   $0 --check                  # Show current status
+  $0 --version                # Show version
   $0 --help                   # Show this help
 
 Environment Variables:
@@ -74,7 +74,7 @@ Environment Variables:
 EOF
 }
 
-# ───────────────────────── Configuration ─────────────────────────
+# ─────────────────────────── Configuration ───────────────────────────
 : "${CODEX_MODEL:="gpt-5"}"
 : "${CODEX_TIERS:=""}"
 : "${CODEX_QUIET:=""}"
@@ -87,12 +87,13 @@ declare -A REASONING_LEVELS=(
   ["high"]="high"
 )
 
-# ───────────────────────── Arguments ─────────────────────────
+# ─────────────────────────── Arguments ───────────────────────────
 INTERACTIVE=1
 AUTO_MODE=0
 QUIET_MODE=0
 DO_UNINSTALL=0
 DO_CHECK=0
+DO_VERSION=0
 SELECTED_TIERS=""
 
 # Detect if running interactively
@@ -107,8 +108,8 @@ while [[ $# -gt 0 ]]; do
     --quiet) QUIET_MODE=1; shift ;;
     --uninstall) DO_UNINSTALL=1; shift ;;
     --check) DO_CHECK=1; shift ;;
-    --mode)
-      INSTALL_MODE="${2:-}"; shift 2 ;;
+    --version) DO_VERSION=1; shift ;;
+    --mode) INSTALL_MODE="${2:-}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) err "Unknown argument: $1"; usage; exit 2 ;;
   esac
@@ -122,7 +123,17 @@ if [[ -n "$CODEX_QUIET" ]]; then
   QUIET_MODE=1
 fi
 
-# ───────────────────────── Utilities ─────────────────────────
+# ─────────────────────────── Utilities ───────────────────────────
+feature_slugify() {
+  # kebab-case slug from input string
+  # usage: feature_slugify "Login OAuth" -> "login-oauth"
+  local s="$*"
+  s="$(echo "$s" | tr '[:upper:]' '[:lower:]')"
+  s="${s//[^a-z0-9]+/-}"
+  s="${s##-}"; s="${s%%-}"
+  printf "%s" "$s"
+}
+
 detect_shell_rc() {
   if [[ -n "${ZSH_VERSION-}" ]] || [[ "${SHELL-}" == *"/zsh" ]]; then
     echo "${HOME}/.zshrc"
@@ -148,7 +159,6 @@ ask_yes_no() {
     *) echo "N" ;;
   esac
 }
-
 
 # Multiple-choice prompt for overwrite behavior
 ask_overwrite_mode() {
@@ -177,7 +187,6 @@ ask_overwrite_mode() {
     *) echo "O" ;;  # fallback
   esac
 }
-
 
 parse_tiers() {
   local input="${1:-}"
@@ -209,8 +218,7 @@ parse_tiers() {
   printf "%s\n" "${result[@]}"
 }
 
-
-# ───────────────────────── Interactive Selections ─────────────────────────
+# ─────────────────────────── Interactive Selections ───────────────────────────
 select_tiers_interactive() {
   sep
   ce "Enhanced Embedded Profile Installer v${VERSION}"
@@ -265,7 +273,7 @@ select_options_interactive() {
   fi
 }
 
-# ───────────────────────── Profile Templates ─────────────────────────
+# ─────────────────────────── Profile Templates ───────────────────────────
 generate_kiro_profile() {
   local tier="$1"
   local reasoning="${REASONING_LEVELS[$tier]}"
@@ -274,34 +282,38 @@ generate_kiro_profile() {
 # Kiro (Codex CLI) — STRICT Planning & Artifacts (No Chain-of-Thought)
 
 **Runtime:** Codex CLI profile kiro_${tier} (model: ${CODEX_MODEL}, reasoning: ${reasoning}).
-**Goal:** Maintain requirements.md, design.md, tasks.md via preview → APPROVE/REVISE → write loops.
+**Goal:** Maintain /specs/{feature-slug}/00_requirements.md, 10_design.md, 20_tasks.md via preview → APPROVE/REVISE → write loops.
 **Resumable:** On re-run, read existing files and propose concise diffs.
+**Location:** All artifacts live under /specs/{feature-slug}/ (kebab-case from feature name; confirm once).
 
 ## HARD RULE — NEVER edit code files
 Kiro must not create/modify/delete code files. It only writes these artifacts after APPROVE:
-- requirements.md
-- design.md  
-- tasks.md
+- 00_requirements.md
+- 10_design.md  
+- 20_tasks.md
 
 If the user asks to modify code, reply with a single line:
-SWITCH TO BEAR: bear-${tier} "<ABSOLUTE_PATH_TO_tasks.md>"
+SWITCH TO BEAR: bear-${tier} "<ABSOLUTE_PATH_TO_/specs/{feature-slug}/20_tasks.md>"
 
 ## Behavior
 - Be concise. Do not print chain-of-thought. Ask ≤2 clarifying questions only if essential.
-- Prefer EARS-style requirements; keep traceability light.
+- Prefer EARS-style acceptance criteria; keep traceability light.
 - When updating, show a minimal diff before writing.
 - Always re-read existing markdowns and update incrementally.
 
 ## Flow
 1) Requirements PREVIEW (bulleted): scope, constraints, acceptance criteria (IDs).
-   Wait for APPROVE or REVISE. If APPROVE → write requirements.md.
+   Wait for APPROVE or REVISE. If APPROVE → write /specs/{feature-slug}/00_requirements.md (merge if exists).
 2) Design PREVIEW (bulleted): components, integration points, risks/mitigations.
-   Wait for APPROVE or REVISE. If APPROVE → write design.md.
-3) Tasks PREVIEW: numbered, small, testable tasks, reference AC IDs.
-   Wait for APPROVE or REVISE. If APPROVE → write/merge tasks.md.
+   Wait for APPROVE or REVISE. If APPROVE → write /specs/{feature-slug}/10_design.md (merge if exists).
+3) Tasks PREVIEW: numbered, small, testable tasks; reference AC IDs.
+   Wait for APPROVE or REVISE. If APPROVE → write/merge /specs/{feature-slug}/20_tasks.md.
 
-After writing/merging tasks.md, output a ready-to-paste handoff line (using the absolute path):
-SWITCH TO BEAR: bear-${tier} "<ABSOLUTE_PATH_TO_tasks.md>"
+After writing/merging 20_tasks.md, output a ready-to-paste handoff line (using the absolute path):
+SWITCH TO BEAR: bear-${tier} "<ABSOLUTE_PATH_TO_/specs/{feature-slug}/20_tasks.md>"
+
+## Numbered Files Rationale
+Natural ordering, lifecycle clarity, easy insertion of stages, CI-friendly globbing.
 
 ## Decision Prompt
 At the end of each PREVIEW, include exactly:
@@ -322,10 +334,16 @@ generate_bear_profile() {
 # Bear (Codex CLI) — Lean Executor (No Chain-of-Thought)
 
 **Runtime:** Codex CLI profile bear_${tier} (model: ${CODEX_MODEL}, reasoning: ${reasoning}).
-**Purpose:** Implement tasks from tasks.md (or a provided task) with small patches and quick validation.
+**Purpose:** Implement tasks from /specs/{feature-slug}/20_tasks.md (or a provided path/slug) with small patches and quick validation.
+
+## Input & Resolution
+- Preferred (from Kiro handoff): absolute path to /specs/{feature-slug}/20_tasks.md.
+- Shorthand: if given a slug (e.g., login-oauth), resolve to \${PWD}/specs/{slug}/20_tasks.md and confirm.
+- No arg: find the most recently updated /specs/**/20_tasks.md and confirm.
 
 ## Behavior
 - Be concise. Do not print chain-of-thought.
+- Read 00_requirements.md, 10_design.md, 20_tasks.md for full context.
 - Start with a micro-plan (3–6 bullets). Reference tasks.md item IDs.
 - Produce patch-ready diffs (unified) or exact file blocks; favor small, testable increments.
 - Run/validate when appropriate; summarize results; propose the next step.
@@ -336,14 +354,20 @@ APPLY? → Reply exactly with:
 - APPLY
 - REVISE: <what to change>
 - CANCEL
+(If the user replies AUTO once in this run, proceed without further confirmations.)
 
-If the user replies AUTO once in this run, proceed without further confirmations.
+## Archive (optional)
+When all tasks are Done (or user commands ARCHIVE), propose:
+- Create /specs/Done/{DD-MM-YYYY}_{feature-slug}/
+- Move: 00_requirements.md, 10_design.md, 20_tasks.md
+- (Optional) Update /specs/_index.md with a completion entry
+On APPROVE → perform and print: ARCHIVED: /specs/Done/{DD-MM-YYYY}_{feature-slug}/
 
 ========================= USER TASK =========================
 EOF
 }
 
-# ───────────────────────── Function Generation ─────────────────────────
+# ─────────────────────────── Function Generation ───────────────────────────
 generate_functions() {
   local -a tiers=()
   readarray -t tiers < <(parse_tiers "$SELECTED_TIERS")
@@ -542,7 +566,7 @@ EOF
 EOF
 }
 
-# ───────────────────────── Installation ─────────────────────────
+# ─────────────────────────── Installation ───────────────────────────
 
 install_functions() {
   local rcfile
@@ -656,10 +680,7 @@ install_functions() {
   ce "  3. Try: kiro-test"
 }
 
-
-# ───────────────────────── Uninstall ─────────────────────────
-
-
+# ─────────────────────────── Uninstall ───────────────────────────
 
 uninstall_functions() {
   local rcfile
@@ -691,10 +712,7 @@ uninstall_functions() {
   fi
 }
 
-
-
-
-# ───────────────────────── Status Check ─────────────────────────
+# ─────────────────────────── Status Check ───────────────────────────
 check_status() {
   local rcfile
   rcfile="$(detect_shell_rc)"
@@ -738,9 +756,14 @@ check_status() {
   fi
 }
 
-# ───────────────────────── Main ─────────────────────────
+# ─────────────────────────── Main ───────────────────────────
 main() {
   # Handle special modes first
+  if [[ $DO_VERSION -eq 1 ]]; then
+    echo "Enhanced Embedded Profile Functions v${VERSION}"
+    exit 0
+  fi
+  
   if [[ $DO_UNINSTALL -eq 1 ]]; then
     uninstall_functions
     exit 0

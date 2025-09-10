@@ -2,7 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.0.0]
+## [2.0.1] - 2025-09-10
+
+### Enhanced
+- **Token-optimized profiles**: Reduced profile size by ~40% while maintaining full functionality
+- **Unicode character fixes**: Corrected all mangled Unicode characters (emojis, box drawing)
+- **Numbered file structure**: Restored numbered file workflow (`00_requirements.md`, `10_design.md`, `20_tasks.md`)
+- **Feature slugify utility**: Added missing `feature_slugify()` function for kebab-case conversion
+- **Version flag**: Added `--version` command line option
+- **Profile improvements**: Enhanced clarity and added "Numbered Files Rationale" section
+
+### Added
+- **Context awareness**: Bear now explicitly reads all three planning files (00_, 10_, 20_) for full context
+- **Archive flow documentation**: Detailed archive workflow with date-stamped folders (`/specs/Done/{feature-slug}/{YYYY-MM-DD}/`)
+- **Input resolution**: Bear supports multiple input formats (absolute path, shorthand slug, auto-detect)
+- **EARS-style acceptance criteria**: Lightweight traceability without overwhelming complexity
+- **Merge capability**: Incremental updates to existing planning files
+
+### Fixed
+- **Profile consistency**: Unified handoff mechanism using numbered file paths
+- **Bear profile**: Enhanced to mention reading requirements, design, and tasks for context
+- **Installation robustness**: Better tier management and error handling
+- **Unicode display**: Proper emoji and symbol rendering in terminals
+
+### Technical
+- **Profile structure**: Maintains original v2.0.0 workflow with numbered file enhancements
+- **Token efficiency**: Kiro ~280 tokens, Bear ~200 tokens (vs ~600+ in verbose versions)
+- **Backward compatibility**: Existing installations upgrade smoothly
+
+## [2.0.0] - 2025-09-09
 
 ### Migration Notes (from v1.0.x to v2.0.0)
 If you previously installed using `install_codex_aliases.sh` (or its versioned variants like `install_codex_aliases-1.0.4.sh`), you should uninstall the old aliases and functions before switching to the new unified installer.
@@ -61,7 +89,7 @@ After cleanup, install using:
 ```bash
 bash codex_interactive_embedded.sh
 ```
- - 2025-09-09
+
 ### Changed
 - Consolidated installer script under a single name: `codex_interactive_embedded.sh`. Removed version suffixes in filenames to simplify README linking and user management.
 - Direct embedding into `~/.zshrc` or `~/.bashrc`, replacing the earlier approach of managing profiles via `--profile` flag.
