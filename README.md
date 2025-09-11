@@ -64,7 +64,7 @@ The agents create a structured workspace under `/specs/{feature-slug}/`:
     10_design.md                     # Architecture & decisions  
     20_tasks.md                      # Actionable tasks (handoff to Bear)
 /specs/Done/
-  {YYYY-MM-DD}_{feature-slug}/       # Archived completed features
+  {DD-MM-YYYY}_{feature-slug}/       # Archived completed features
     00_requirements.md
     10_design.md
     20_tasks.md
@@ -261,7 +261,7 @@ sequenceDiagram
         B->>U: Results & next step proposal
     end
     Note over B,U: When all tasks complete
-    B->>U: Propose ARCHIVE to /specs/Done/{YYYY-MM-DD}_{feature-slug}/
+    B->>U: Propose ARCHIVE to /specs/Done/{DD-MM-YYYY}_{feature-slug}/
 ```
 
 ## Installation Options
