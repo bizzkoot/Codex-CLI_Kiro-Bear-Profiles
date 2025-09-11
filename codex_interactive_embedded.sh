@@ -4,21 +4,23 @@
 
 set -euo pipefail
 
-# ─────────────────────────── Bash Version Check ───────────────────────────
+# ─────────────────────────────── Bash Version Check ───────────────────────────────
 # We require Bash >= 4.0 (associative arrays + readarray). macOS ships 3.2 by default.
 # If your version is older, follow the printed instructions.
 if [[ -z "${BASH_VERSION:-}" ]]; then
-  echo "❌ This script must be run with bash, not sh/zsh. Try: bash $0" >&2
+  echo "⚠ This script must be run with bash, not sh/zsh. Try: bash $0" >&2
   exit 1
 fi
 bash_major="${BASH_VERSINFO[0]}"
 bash_minor="${BASH_VERSINFO[1]}"
 if (( bash_major < 4 )); then
   cat <<'EOBASH'
-❌ Your Bash version is too old for this installer (requires >= 4.0).
+⚠ Your Bash version is too old for this installer (requires >= 4.0).
 
 On macOS (Homebrew):
   brew install bash
+  # Apple Silicon: /opt/homebrew/bin/bash path/to/this_script.sh
+  # Intel:         /usr/local/bin/bash path/to/this_script.sh
   # then run with the brewed bash:
   /opt/homebrew/bin/bash path/to/this_script.sh
 
@@ -32,16 +34,32 @@ EOBASH
   exit 1
 fi
 
-VERSION="2.0.1"
+VERSION="2.0.2"
 SCRIPT_NAME="enhanced_embedded_profiles-${VERSION}.sh"
 
-# ─────────────────────────── helpers ───────────────────────────
+# ─────────────────────────────── helpers ───────────────────────────────
 ce(){ printf "%s\n" "$*" >&2; }
 info(){ ce "👉 $*"; }
 ok(){ ce "✅ $*"; }
 warn(){ ce "⚠️  $*"; }
 err(){ ce "❌ $*"; }
 sep(){ ce "────────────────────────────────────────────────────"; }
+
+# Cross-platform sed in-place editing
+safe_sed_inplace() {
+  local pattern="$1"
+  local file="$2"
+  
+  # Create a temporary file for atomic operation
+  local tmpfile="${file}.tmp.$$"
+  
+  if sed "$pattern" "$file" > "$tmpfile"; then
+    mv "$tmpfile" "$file"
+  else
+    rm -f "$tmpfile"
+    return 1
+  fi
+}
 
 usage() {
   cat <<EOF
@@ -56,6 +74,7 @@ Features:
   • Interactive or non-interactive installation
   • Optional startup messages
   • Comprehensive test functions
+  • Cross-platform compatibility (macOS, Linux)
 
 Usage:
   $0                          # Interactive mode
@@ -74,7 +93,7 @@ Environment Variables:
 EOF
 }
 
-# ─────────────────────────── Configuration ───────────────────────────
+# ─────────────────────────────── Configuration ───────────────────────────────
 : "${CODEX_MODEL:="gpt-5"}"
 : "${CODEX_TIERS:=""}"
 : "${CODEX_QUIET:=""}"
@@ -87,7 +106,7 @@ declare -A REASONING_LEVELS=(
   ["high"]="high"
 )
 
-# ─────────────────────────── Arguments ───────────────────────────
+# ─────────────────────────────── Arguments ───────────────────────────────
 INTERACTIVE=1
 AUTO_MODE=0
 QUIET_MODE=0
@@ -115,6 +134,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Auto-mode validation
+if [[ ${AUTO_MODE:-0} -eq 1 ]] && ! command -v codex >/dev/null 2>&1; then
+    err "Codex CLI not found. Install or ensure it's on PATH."
+    exit 1
+fi
+
 # Apply environment overrides
 if [[ -n "$CODEX_TIERS" ]]; then
   SELECTED_TIERS="$CODEX_TIERS"
@@ -123,22 +148,23 @@ if [[ -n "$CODEX_QUIET" ]]; then
   QUIET_MODE=1
 fi
 
-# ─────────────────────────── Utilities ───────────────────────────
+# ─────────────────────────────── Utilities ───────────────────────────────
 feature_slugify() {
-  # kebab-case slug from input string
-  # usage: feature_slugify "Login OAuth" -> "login-oauth"
   local s="$*"
-  s="$(echo "$s" | tr '[:upper:]' '[:lower:]')"
-  s="${s//[^a-z0-9]+/-}"
-  s="${s##-}"; s="${s%%-}"
-  printf "%s" "$s"
+  printf '%s' "$s" \
+  | tr '[:upper:]' '[:lower:]' \
+  | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
 }
 
 detect_shell_rc() {
   if [[ -n "${ZSH_VERSION-}" ]] || [[ "${SHELL-}" == *"/zsh" ]]; then
     echo "${HOME}/.zshrc"
   else
-    echo "${HOME}/.bashrc"
+    if [[ -f "${HOME}/.bashrc" ]]; then
+      echo "${HOME}/.bashrc"
+    else
+      echo "${HOME}/.bash_profile"
+    fi
   fi
 }
 
@@ -218,7 +244,7 @@ parse_tiers() {
   printf "%s\n" "${result[@]}"
 }
 
-# ─────────────────────────── Interactive Selections ───────────────────────────
+# ─────────────────────────────── Interactive Selections ───────────────────────────────
 select_tiers_interactive() {
   sep
   ce "Enhanced Embedded Profile Installer v${VERSION}"
@@ -273,13 +299,13 @@ select_options_interactive() {
   fi
 }
 
-# ─────────────────────────── Profile Templates ───────────────────────────
+# ─────────────────────────────── Profile Templates ───────────────────────────────
 generate_kiro_profile() {
   local tier="$1"
   local reasoning="${REASONING_LEVELS[$tier]}"
   
   cat <<EOF
-# Kiro (Codex CLI) — STRICT Planning & Artifacts (No Chain-of-Thought)
+# Kiro (Codex CLI) — STRICT Planning & Artifacts
 
 **Runtime:** Codex CLI profile kiro_${tier} (model: ${CODEX_MODEL}, reasoning: ${reasoning}).
 **Goal:** Maintain /specs/{feature-slug}/00_requirements.md, 10_design.md, 20_tasks.md via preview → APPROVE/REVISE → write loops.
@@ -289,35 +315,36 @@ generate_kiro_profile() {
 ## HARD RULE — NEVER edit code files
 Kiro must not create/modify/delete code files. It only writes these artifacts after APPROVE:
 - 00_requirements.md
-- 10_design.md  
+- 10_design.md
 - 20_tasks.md
 
-If the user asks to modify code, reply with a single line:
-SWITCH TO BEAR: bear-${tier} "<ABSOLUTE_PATH_TO_/specs/{feature-slug}/20_tasks.md>"
+If asked to modify code, reply exactly:
+SWITCH TO BEAR: bear-\${tier} "<ABSOLUTE_PATH_TO_/specs/{feature-slug}/20_tasks.md>"
 
 ## Behavior
-- Be concise. Do not print chain-of-thought. Ask ≤2 clarifying questions only if essential.
+- Be concise; ask ≤2 clarifying Qs only if essential.
 - Prefer EARS-style acceptance criteria; keep traceability light.
-- When updating, show a minimal diff before writing.
+- Show minimal diffs before writing.
 - Always re-read existing markdowns and update incrementally.
+- For 20_tasks.md, format each item as \`N. [ ] ... (AC-ID)\` (checkboxes + numbering).
 
 ## Flow
-1) Requirements PREVIEW (bulleted): scope, constraints, acceptance criteria (IDs).
-   Wait for APPROVE or REVISE. If APPROVE → write /specs/{feature-slug}/00_requirements.md (merge if exists).
-2) Design PREVIEW (bulleted): components, integration points, risks/mitigations.
-   Wait for APPROVE or REVISE. If APPROVE → write /specs/{feature-slug}/10_design.md (merge if exists).
-3) Tasks PREVIEW: numbered, small, testable tasks; reference AC IDs.
-   Wait for APPROVE or REVISE. If APPROVE → write/merge /specs/{feature-slug}/20_tasks.md.
+1) Requirements PREVIEW: scope, constraints, acceptance criteria (IDs).
+   On APPROVE → write/merge 00_requirements.md.
+2) Design PREVIEW: components, integration points, risks/mitigations.
+   On APPROVE → write/merge 10_design.md.
+3) Tasks PREVIEW: numbered + [ ] checkboxes, small/testable, reference AC IDs.
+   On APPROVE → write/merge 20_tasks.md.
 
-After writing/merging 20_tasks.md, output a ready-to-paste handoff line (using the absolute path):
-SWITCH TO BEAR: bear-${tier} "<ABSOLUTE_PATH_TO_/specs/{feature-slug}/20_tasks.md>"
+After writing 20_tasks.md, output handoff:
+SWITCH TO BEAR: bear-\${tier} "<ABSOLUTE_PATH_TO_/specs/{feature-slug}/20_tasks.md>"
 
 ## Numbered Files Rationale
-Natural ordering, lifecycle clarity, easy insertion of stages, CI-friendly globbing.
+Clear lifecycle order, easy insertions, CI-friendly globbing.
 
 ## Decision Prompt
-At the end of each PREVIEW, include exactly:
-DECIDE → Reply exactly with one of:
+At end of each PREVIEW, include exactly:
+DECIDE → Reply exactly with:
 - APPROVE
 - REVISE: <your changes or constraints>
 - CANCEL
@@ -329,45 +356,69 @@ EOF
 generate_bear_profile() {
   local tier="$1"
   local reasoning="${REASONING_LEVELS[$tier]}"
-  
+
   cat <<EOF
-# Bear (Codex CLI) — Lean Executor (No Chain-of-Thought)
+# Bear (Codex CLI) — Lean Executor
 
 **Runtime:** Codex CLI profile bear_${tier} (model: ${CODEX_MODEL}, reasoning: ${reasoning}).
-**Purpose:** Implement tasks from /specs/{feature-slug}/20_tasks.md (or a provided path/slug) with small patches and quick validation.
+**Purpose:** Execute tasks from /specs/{slug}/20_tasks.md with small, testable changes.
 
-## Input & Resolution
-- Preferred (from Kiro handoff): absolute path to /specs/{feature-slug}/20_tasks.md.
-- Shorthand: if given a slug (e.g., login-oauth), resolve to \${PWD}/specs/{slug}/20_tasks.md and confirm.
-- No arg: find the most recently updated /specs/**/20_tasks.md and confirm.
+## Input
+- Handoff: absolute path from Kiro (optional).
+- Slug: resolve to ${PWD}/specs/{slug}/20_tasks.md.
+- Fallback: choose most recent non-archived: /specs/**/20_tasks.md (exclude /specs/Done/**).
+
+## Missing-Tasks Flow (Option 2)
+If no non-archived 20_tasks.md is found:
+1) Derive {slug} (kebab-case from feature name; confirm once).
+2) Create stub at /specs/{slug}/20_tasks.md:
+
+   ```markdown
+   # Tasks
+   1. [ ] <short title> (AC-01)
+      - intent: <1 line>
+      - files: <paths if known>
+      - test: <how to verify>
+
+3) Print a 3-line plan (title / files / test).  
+4) Ask **one** confirm only if anything is ambiguous or risky:
+- Confirm? REPLY: APPROVE / REVISE:<edits> / CANCEL
+- If AUTO: proceed unless risky/large.
 
 ## Behavior
-- Be concise. Do not print chain-of-thought.
-- Read 00_requirements.md, 10_design.md, 20_tasks.md for full context.
-- Start with a micro-plan (3–6 bullets). Reference tasks.md item IDs.
-- Produce patch-ready diffs (unified) or exact file blocks; favor small, testable increments.
-- Run/validate when appropriate; summarize results; propose the next step.
+- Be concise.
+- Read 00_requirements.md, 10_design.md, 20_tasks.md if present.
+- Start with a micro-plan (≤5 bullets) referencing task numbers.
+- Output small diffs or file blocks; run & summarize checks when relevant.
+- For 20_tasks.md:
+- Match by number+text; flip \`[ ]\` → \`[x]\` only after success.
+- Append "— done: <ISO8601> by Bear" once; keep numbering/format.
+- Commit msg: \`tasks: check off N. <title> (AC-XX)\`.
+- If a change doesn’t map, log under **Unmapped Completions**.
 
-## Optional Confirmation (for risky/large changes)
-Show the diff first, then wait:
-APPLY? → Reply exactly with:
-- APPLY
-- REVISE: <what to change>
-- CANCEL
-(If the user replies AUTO once in this run, proceed without further confirmations.)
+## Print Plan (compact)
+- Show table with: N | title | files | test (1–3 lines total).
+- Ask at most one clarification if needed; otherwise proceed.
 
 ## Archive (optional)
-When all tasks are Done (or user commands ARCHIVE), propose:
-- Create /specs/Done/{DD-MM-YYYY}_{feature-slug}/
-- Move: 00_requirements.md, 10_design.md, 20_tasks.md
-- (Optional) Update /specs/_index.md with a completion entry
-On APPROVE → perform and print: ARCHIVED: /specs/Done/{DD-MM-YYYY}_{feature-slug}/
+When all tasks \`[x]\` (or ARCHIVE):
+- Move 00/10/20 to /specs/Done/{DD-MM-YYYY}_{slug}/
+- (Optional) update /specs/_index.md
+- On APPROVE → perform and print path.
+
+## Decision Prompt
+At decision points (missing-tasks stub, risky diffs, archive):
+DECIDE → Reply exactly with:
+- APPROVE
+- REVISE: <what to change>
+- CANCEL
+- AUTO   (run without further prompts, except pause for risky/large changes)
 
 ========================= USER TASK =========================
 EOF
 }
 
-# ─────────────────────────── Function Generation ───────────────────────────
+# ─────────────────────────────── Function Generation ───────────────────────────────
 generate_functions() {
   local -a tiers=()
   readarray -t tiers < <(parse_tiers "$SELECTED_TIERS")
@@ -540,7 +591,7 @@ codex-help() {
     echo "  bear-high 'Build comprehensive error handling system'"
     echo "  bear-min 'Create basic HTML structure'"
     echo
-    echo "🔄 Workflow:"
+    echo "📄 Workflow:"
     echo "  1. Use Kiro to plan: kiro 'Plan feature X'"
     echo "  2. Approve requirements, design, tasks"
     echo "  3. Switch to Bear: bear 'Implement task #1 from tasks.md'"
@@ -566,7 +617,7 @@ EOF
 EOF
 }
 
-# ─────────────────────────── Installation ───────────────────────────
+# ─────────────────────────────── Installation ───────────────────────────────
 
 install_functions() {
   local rcfile
@@ -597,7 +648,6 @@ install_functions() {
   fi
 
   # Compute set relations
-  local -A seen=()
   local -a new_tiers=()
   for t in "${selected_tiers[@]}"; do
     local found=0
@@ -616,16 +666,16 @@ install_functions() {
       ce "New tiers to add: ${new_tiers[*]}"
       ce "Final tiers will be: ${existing_tiers[*]} ${new_tiers[*]}"
       local mode
-      if [[ -n "$INSTALL_MODE" ]]; then
-      case "$INSTALL_MODE" in
-        overwrite) mode="O" ;;
-        skip) mode="S" ;;
-        delete) mode="D" ;;
-        *) mode="O" ;;
-      esac
-    else
-      mode="$(ask_overwrite_mode "Reinstall to include new tiers as well. Proceed?" "O")"
-    fi
+      if [[ -n "${INSTALL_MODE:-}" ]]; then
+        case "$INSTALL_MODE" in
+          overwrite) mode="O" ;;
+          skip) mode="S" ;;
+          delete) mode="D" ;;
+          *) mode="O" ;;
+        esac
+      else
+        mode="$(ask_overwrite_mode "Reinstall to include new tiers as well. Proceed?" "O")"
+      fi
       case "$mode" in
         S)
           warn "Skip selected. Leaving existing install unchanged."
@@ -633,8 +683,10 @@ install_functions() {
           ;;
         D|O)
           # Remove the old block, then regenerate with union of tiers
-          sed -i.tmp '/# BEGIN EMBEDDED CODEX FUNCTIONS/,/# END EMBEDDED CODEX FUNCTIONS/d' "$rcfile"
-          rm -f "${rcfile}.tmp"
+          if ! safe_sed_inplace '/# BEGIN EMBEDDED CODEX FUNCTIONS/,/# END EMBEDDED CODEX FUNCTIONS/d' "$rcfile"; then
+            err "Failed to remove existing functions from $rcfile"
+            return 1
+          fi
           # Build union string preserving existing order then appending new
           local final_tiers=""
           if [[ ${#existing_tiers[@]} -gt 0 ]]; then
@@ -649,28 +701,33 @@ install_functions() {
     else
       # Same set (no new tiers) → ask O/S/D
       local mode
-      if [[ -n "$INSTALL_MODE" ]]; then
-      case "$INSTALL_MODE" in
-        overwrite) mode="O" ;;
-        skip) mode="S" ;;
-        delete) mode="D" ;;
-        *) mode="S" ;;
-      esac
-    else
-      mode="$(ask_overwrite_mode "Embedded functions already exist with same tiers. Action?" "S")"
-    fi
+      if [[ -n "${INSTALL_MODE:-}" ]]; then
+        case "$INSTALL_MODE" in
+          overwrite) mode="O" ;;
+          skip) mode="S" ;;
+          delete) mode="D" ;;
+          *) mode="S" ;;
+        esac
+      else
+        mode="$(ask_overwrite_mode "Embedded functions already exist with same tiers. Action?" "S")"
+      fi
       case "$mode" in
         S) warn "Keeping current install. No changes."; return 0 ;;
         D|O)
-          sed -i.tmp '/# BEGIN EMBEDDED CODEX FUNCTIONS/,/# END EMBEDDED CODEX FUNCTIONS/d' "$rcfile"
-          rm -f "${rcfile}.tmp"
+          if ! safe_sed_inplace '/# BEGIN EMBEDDED CODEX FUNCTIONS/,/# END EMBEDDED CODEX FUNCTIONS/d' "$rcfile"; then
+            err "Failed to remove existing functions from $rcfile"
+            return 1
+          fi
           ;;
       esac
     fi
   fi
 
   # Add new functions (fresh or after removal)
-  generate_functions >> "$rcfile"
+  if ! generate_functions >> "$rcfile"; then
+    err "Failed to write functions to $rcfile"
+    return 1
+  fi
   ok "Installed embedded functions"
 
   echo
@@ -680,7 +737,7 @@ install_functions() {
   ce "  3. Try: kiro-test"
 }
 
-# ─────────────────────────── Uninstall ───────────────────────────
+# ─────────────────────────────── Uninstall ───────────────────────────────
 
 uninstall_functions() {
   local rcfile
@@ -689,10 +746,10 @@ uninstall_functions() {
   if [[ -f "$rcfile" ]] && grep -q "# BEGIN EMBEDDED CODEX FUNCTIONS" "$rcfile" 2>/dev/null; then
     local do_backup
     do_backup="$(ask_yes_no "Create a backup before uninstalling?" "Y")"
-    local backup_dir=""
     if [[ "$do_backup" == "Y" ]]; then
       local default_dir
       default_dir="$(dirname "$rcfile")"
+      local backup_dir
       read -r -p "Enter backup directory [${default_dir}]: " backup_dir
       backup_dir="${backup_dir:-$default_dir}"
       mkdir -p "$backup_dir"
@@ -703,8 +760,10 @@ uninstall_functions() {
       warn "No backup created"
     fi
 
-    sed -i.tmp '/# BEGIN EMBEDDED CODEX FUNCTIONS/,/# END EMBEDDED CODEX FUNCTIONS/d' "$rcfile"
-    rm -f "${rcfile}.tmp"
+    if ! safe_sed_inplace '/# BEGIN EMBEDDED CODEX FUNCTIONS/,/# END EMBEDDED CODEX FUNCTIONS/d' "$rcfile"; then
+      err "Failed to remove embedded functions from $rcfile"
+      return 1
+    fi
     ok "Removed embedded functions from $rcfile"
     info "Run: source \"$rcfile\" to reload your shell"
   else
@@ -712,7 +771,7 @@ uninstall_functions() {
   fi
 }
 
-# ─────────────────────────── Status Check ───────────────────────────
+# ─────────────────────────────── Status Check ───────────────────────────────
 check_status() {
   local rcfile
   rcfile="$(detect_shell_rc)"
@@ -756,7 +815,7 @@ check_status() {
   fi
 }
 
-# ─────────────────────────── Main ───────────────────────────
+# ─────────────────────────────── Main ───────────────────────────────
 main() {
   # Handle special modes first
   if [[ $DO_VERSION -eq 1 ]]; then

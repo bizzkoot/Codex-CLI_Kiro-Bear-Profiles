@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.2] - 2025-09-11
+
+### Added
+- **Cross-platform editing**: Introduced `safe_sed_inplace` helper for atomic, portable in-place edits (avoids BSD/GNU sed differences).
+- **Auto-mode validation**: `--auto` now checks for Codex CLI presence and fails fast with a clear error if missing.
+
+### Changed
+- **Bash version guidance**: Clearer version check messaging and platform-specific upgrade instructions; includes Apple Silicon/Intel invocation hints.
+- **RC file detection**: `detect_shell_rc()` now falls back to `~/.bash_profile` when `~/.bashrc` is absent (improves default bash setups on macOS/Linux).
+- **Bear profile flow**: Refined input resolution and missing-tasks bootstrap (creates concise stub, prints a compact plan, and uses consistent decision prompts). Excludes archived specs from discovery and standardizes archive directories to `YYYY-MM-DD_{slug}`.
+- **Prompting style**: Removed explicit “No Chain-of-Thought” directive; defers to Codex CLI to determine reasoning style.
+- **Polish**: Minor copy edits to banners and help output.
+
+### Fixed
+- **Slug utility**: `feature_slugify()` now reliably produces kebab-case via `tr` + `sed -E`, correctly trimming leading/trailing dashes.
+- **Uninstall portability**: Replaced `sed -i` usage with an atomic temp-file approach (`safe_sed_inplace`) for consistent uninstall behavior across environments.
+
+### Technical
+- **Version**: Bumped to `v2.0.2`.
+
 ## [2.0.1] - 2025-09-10
 
 ### Enhanced

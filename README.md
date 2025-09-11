@@ -51,7 +51,7 @@ bear "Implement login form component"
 - **Safety**: Workspace-write sandbox, on-request approvals  
 - **Output**: Working code with incremental progress  
 - **Workflow**: Plan → Risk Assessment → Execute → Validate (step-by-step)
-- **Features**: Context-aware (reads all three planning files), archive flow
+- **Features**: Context-aware (reads all three planning files); micro-plan preview (≤5 bullets); can bootstrap when no `20_tasks.md` exists; excludes archived specs when resolving tasks; archive flow on completion
 
 ## File Structure
 
@@ -64,7 +64,7 @@ The agents create a structured workspace under `/specs/{feature-slug}/`:
     10_design.md                     # Architecture & decisions  
     20_tasks.md                      # Actionable tasks (handoff to Bear)
 /specs/Done/
-  {DD-MM-YYYY}_{feature-slug}/       # Archived completed features
+  {YYYY-MM-DD}_{feature-slug}/       # Archived completed features
     00_requirements.md
     10_design.md
     20_tasks.md
@@ -147,7 +147,7 @@ codex
 
 >_ You are using OpenAI Codex in ~/Custom APP/test
 
-▌# Kiro (Codex CLI) — STRICT Planning & Artifacts (No Chain-of-Thought)
+▌# Kiro (Codex CLI) — STRICT Planning & Artifacts
 ▌
 ▌**Runtime:** Codex CLI profile kiro_min (model: gpt-5, reasoning: minimal).
 ▌**Goal:** Maintain /specs/{feature-slug}/00_requirements.md, 10_design.md, 20_tasks.md
@@ -261,7 +261,7 @@ sequenceDiagram
         B->>U: Results & next step proposal
     end
     Note over B,U: When all tasks complete
-    B->>U: Propose ARCHIVE to /specs/Done/{DD-MM-YYYY}_{feature-slug}/
+    B->>U: Propose ARCHIVE to /specs/Done/{YYYY-MM-DD}_{feature-slug}/
 ```
 
 ## Installation Options
@@ -337,11 +337,12 @@ Besides the `kiro` and `bear` agent functions, the installer adds helpful utilit
 - **Backup safety**: During install, a timestamped backup of your shell rc (`~/.zshrc` or `~/.bashrc`) is created. During uninstall, you are prompted to optionally create a backup before removal.
 - **Shell detection**: The installer detects your shell and targets the appropriate rc file automatically.
 - **Tier management**: Can add new tiers to existing installation without losing current setup.
+- **Auto mode requirement**: `--auto` validates the Codex CLI is installed and on `PATH`; install `@openai/codex-cli` first or run interactive mode.
 
 ## What Gets Installed
 
 ### Embedded Functions
-In **v2.0.1**, Kiro/Bear are exposed as **shell functions** with embedded profiles.  
+Kiro/Bear are exposed as **shell functions** with embedded profiles.  
 The installer writes them into your shell rc (e.g., `~/.zshrc`). After installing, open your project folder and run `kiro`/`bear` commands directly.
 
 Available commands:
@@ -352,7 +353,8 @@ Available commands:
 Bear intelligently resolves different input formats:
 - **Preferred (from Kiro handoff)**: `bear "/absolute/path/to/specs/feature-slug/20_tasks.md"`
 - **Shorthand**: `bear "login-oauth"` → resolves to `${PWD}/specs/login-oauth/20_tasks.md` (confirms first)
-- **No argument**: `bear` → finds most recent `/specs/**/20_tasks.md` and asks confirmation
+- **No argument**: `bear` → finds most recent non-archived `/specs/**/20_tasks.md` (excludes `/specs/Done/**`) and asks confirmation
+- **No tasks found**: Bear can bootstrap by creating `/specs/{feature-slug}/20_tasks.md` with a minimal stub, printing a compact plan (title / files / test), then asking for a decision: `APPROVE`, `REVISE: <edits>`, `CANCEL`, or `AUTO`.
 
 ## Requirements
 
