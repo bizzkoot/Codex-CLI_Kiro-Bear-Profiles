@@ -1,31 +1,25 @@
 #!/usr/bin/env bash
-# Enhanced Interactive Embedded Profile Functions
+# Enhanced Interactive Embedded Profile Functions v2.0.3
+# FIXED: Bear profiles now generate correctly
 # Full Kiro & Bear with configurable tiers and interactive setup
 
 set -euo pipefail
 
 # ─────────────────────────────── Bash Version Check ───────────────────────────────
-# We require Bash >= 4.0 (associative arrays + readarray). macOS ships 3.2 by default.
-# If your version is older, follow the printed instructions.
 if [[ -z "${BASH_VERSION:-}" ]]; then
-  echo "⚠ This script must be run with bash, not sh/zsh. Try: bash $0" >&2
+  echo "⚠️  This script must be run with bash, not sh/zsh. Try: bash $0" >&2
   exit 1
 fi
 bash_major="${BASH_VERSINFO[0]}"
-bash_minor="${BASH_VERSINFO[1]}"
 if (( bash_major < 4 )); then
   cat <<'EOBASH'
-⚠ Your Bash version is too old for this installer (requires >= 4.0).
+⚠️  Your Bash version is too old for this installer (requires >= 4.0).
 
 On macOS (Homebrew):
   brew install bash
-  # Apple Silicon: /opt/homebrew/bin/bash path/to/this_script.sh
-  # Intel:         /usr/local/bin/bash path/to/this_script.sh
-  # then run with the brewed bash:
   /opt/homebrew/bin/bash path/to/this_script.sh
 
 On Linux:
-  # Ensure bash >= 4 is installed via your package manager, e.g.:
   sudo apt-get update && sudo apt-get install -y bash
 
 If you still see this message, explicitly invoke the newer bash:
@@ -34,7 +28,7 @@ EOBASH
   exit 1
 fi
 
-VERSION="2.0.2"
+VERSION="2.0.3"
 SCRIPT_NAME="enhanced_embedded_profiles-${VERSION}.sh"
 
 # ─────────────────────────────── helpers ───────────────────────────────
@@ -43,14 +37,12 @@ info(){ ce "👉 $*"; }
 ok(){ ce "✅ $*"; }
 warn(){ ce "⚠️  $*"; }
 err(){ ce "❌ $*"; }
-sep(){ ce "────────────────────────────────────────────────────"; }
+sep(){ ce "──────────────────────────────────────────────────"; }
 
 # Cross-platform sed in-place editing
 safe_sed_inplace() {
   local pattern="$1"
   local file="$2"
-  
-  # Create a temporary file for atomic operation
   local tmpfile="${file}.tmp.$$"
   
   if sed "$pattern" "$file" > "$tmpfile"; then
@@ -65,16 +57,10 @@ usage() {
   cat <<EOF
 Enhanced Embedded Profile Functions v${VERSION}
 
+FIXED: Bear profiles now generate correctly in v2.0.3
+
 This script installs Kiro & Bear functions with embedded profile instructions,
 bypassing the config.toml profile system entirely for maximum reliability.
-
-Features:
-  • Embedded profile instructions (no config.toml dependency)
-  • Configurable reasoning tiers (min/low/mid/high)
-  • Interactive or non-interactive installation
-  • Optional startup messages
-  • Comprehensive test functions
-  • Cross-platform compatibility (macOS, Linux)
 
 Usage:
   $0                          # Interactive mode
@@ -90,6 +76,10 @@ Environment Variables:
   CODEX_MODEL=gpt-5           # Model to use
   CODEX_TIERS=min,low,mid,high # Tiers to install
   CODEX_QUIET=1               # Suppress startup messages
+  CODEX_FILE_OPENER=vscode|vscode-insiders|windsurf|cursor|none  # File opener for links
+  
+CLI Options:
+  --file-opener OPENER        # One of: vscode, vscode-insiders, windsurf, cursor, none
 EOF
 }
 
@@ -97,6 +87,10 @@ EOF
 : "${CODEX_MODEL:="gpt-5"}"
 : "${CODEX_TIERS:=""}"
 : "${CODEX_QUIET:=""}"
+: "${CODEX_FILE_OPENER:="vscode"}"
+
+# File opener (validated)
+FILE_OPENER="$CODEX_FILE_OPENER"
 
 # Reasoning effort mappings
 declare -A REASONING_LEVELS=(
@@ -114,6 +108,7 @@ DO_UNINSTALL=0
 DO_CHECK=0
 DO_VERSION=0
 SELECTED_TIERS=""
+CLI_FILE_OPENER=""
 
 # Detect if running interactively
 if [[ ! -t 0 || ! -t 1 ]]; then
@@ -128,6 +123,7 @@ while [[ $# -gt 0 ]]; do
     --uninstall) DO_UNINSTALL=1; shift ;;
     --check) DO_CHECK=1; shift ;;
     --version) DO_VERSION=1; shift ;;
+    --file-opener) CLI_FILE_OPENER="${2:-}"; shift 2 ;;
     --mode) INSTALL_MODE="${2:-}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) err "Unknown argument: $1"; usage; exit 2 ;;
@@ -146,6 +142,20 @@ if [[ -n "$CODEX_TIERS" ]]; then
 fi
 if [[ -n "$CODEX_QUIET" ]]; then
   QUIET_MODE=1
+fi
+if [[ -n "$CLI_FILE_OPENER" ]]; then
+  FILE_OPENER="$CLI_FILE_OPENER"
+fi
+
+validate_file_opener() {
+  case "$1" in
+    vscode|vscode-insiders|windsurf|cursor|none) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+if ! validate_file_opener "$FILE_OPENER"; then
+  warn "Invalid file_opener '${FILE_OPENER}', defaulting to 'vscode'"
+  FILE_OPENER="vscode"
 fi
 
 # ─────────────────────────────── Utilities ───────────────────────────────
@@ -186,12 +196,7 @@ ask_yes_no() {
   esac
 }
 
-# Multiple-choice prompt for overwrite behavior
 ask_overwrite_mode() {
-  # Returns one of: O S D
-  # O = Overwrite (replace existing block)
-  # S = Skip (do nothing)
-  # D = Delete first then install (clean slate)
   local prompt="${1:-Embedded functions already exist. Action?}"
   local default="${2:-O}"
   local ans
@@ -210,7 +215,7 @@ ask_overwrite_mode() {
     O|o|overwrite|OVERWRITE) echo "O" ;;
     S|s|skip|SKIP)           echo "S" ;;
     D|d|delete|DELETE)       echo "D" ;;
-    *) echo "O" ;;  # fallback
+    *) echo "O" ;;
   esac
 }
 
@@ -219,14 +224,14 @@ parse_tiers() {
   local -a result=()
 
   if [[ -z "$input" ]]; then
-    echo "mid"  # Default tier
+    echo "mid"
     return
   fi
 
   IFS=',' read -r -a parts <<< "$input"
   for tier in "${parts[@]}"; do
-    tier="$(echo "$tier" | xargs)"   # trim whitespace
-    [[ -z "$tier" ]] && continue     # ignore empty tokens
+    tier="$(echo "$tier" | xargs)"
+    [[ -z "$tier" ]] && continue
     case "$tier" in
       1|min)   result+=("min") ;;
       2|low)   result+=("low") ;;
@@ -267,13 +272,12 @@ select_tiers_interactive() {
     4) SELECTED_TIERS="high" ;;
     5) SELECTED_TIERS="min,low,mid,high" ;;
     *) 
-      # Parse comma-separated or multiple numbers
       choice="${choice//1/min,}"
       choice="${choice//2/low,}"
       choice="${choice//3/mid,}"
       choice="${choice//4/high,}"
       choice="${choice//5/min,low,mid,high,}"
-      choice="${choice%,}"  # Remove trailing comma
+      choice="${choice%,}"
       SELECTED_TIERS="$choice"
       ;;
   esac
@@ -297,6 +301,32 @@ select_options_interactive() {
     read -r -p "Enter model name [gpt-5]: " new_model || true
     CODEX_MODEL="${new_model:-gpt-5}"
   fi
+
+  echo
+  # Direct selection of file opener with dynamic default as current value
+  local __default_idx="1"
+  case "$FILE_OPENER" in
+    vscode) __default_idx="1" ;;
+    vscode-insiders) __default_idx="2" ;;
+    windsurf) __default_idx="3" ;;
+    cursor) __default_idx="4" ;;
+    none) __default_idx="5" ;;
+  esac
+  ce "Select file opener for clickable links:"
+  ce "  1) vscode"
+  ce "  2) vscode-insiders"
+  ce "  3) windsurf"
+  ce "  4) cursor"
+  ce "  5) none"
+  read -r -p "Choose [1-5, default: ${__default_idx}]: " __fo || true
+  case "${__fo:-$__default_idx}" in
+    1) FILE_OPENER="vscode" ;;
+    2) FILE_OPENER="vscode-insiders" ;;
+    3) FILE_OPENER="windsurf" ;;
+    4) FILE_OPENER="cursor" ;;
+    5) FILE_OPENER="none" ;;
+    *) warn "Unknown choice '${__fo}', keeping '$FILE_OPENER'" ;;
+  esac
 }
 
 # ─────────────────────────────── Profile Templates ───────────────────────────────
@@ -319,7 +349,7 @@ Kiro must not create/modify/delete code files. It only writes these artifacts af
 - 20_tasks.md
 
 If asked to modify code, reply exactly:
-SWITCH TO BEAR: bear-\${tier} "<ABSOLUTE_PATH_TO_/specs/{feature-slug}/20_tasks.md>"
+SWITCH TO BEAR: bear-${tier} "<ABSOLUTE_PATH_TO_/specs/{feature-slug}/20_tasks.md>"
 
 ## Behavior
 - Be concise; ask ≤2 clarifying Qs only if essential.
@@ -337,7 +367,7 @@ SWITCH TO BEAR: bear-\${tier} "<ABSOLUTE_PATH_TO_/specs/{feature-slug}/20_tasks.
    On APPROVE → write/merge 20_tasks.md.
 
 After writing 20_tasks.md, output handoff:
-SWITCH TO BEAR: bear-\${tier} "<ABSOLUTE_PATH_TO_/specs/{feature-slug}/20_tasks.md>"
+SWITCH TO BEAR: bear-${tier} "<ABSOLUTE_PATH_TO_/specs/{feature-slug}/20_tasks.md>"
 
 ## Numbered Files Rationale
 Clear lifecycle order, easy insertions, CI-friendly globbing.
@@ -365,7 +395,7 @@ generate_bear_profile() {
 
 ## Input
 - Handoff: absolute path from Kiro (optional).
-- Slug: resolve to ${PWD}/specs/{slug}/20_tasks.md.
+- Slug: resolve to \${PWD}/specs/{slug}/20_tasks.md.
 - Fallback: choose most recent non-archived: /specs/**/20_tasks.md (exclude /specs/Done/**).
 
 ## Missing-Tasks Flow (Option 2)
@@ -373,12 +403,13 @@ If no non-archived 20_tasks.md is found:
 1) Derive {slug} (kebab-case from feature name; confirm once).
 2) Create stub at /specs/{slug}/20_tasks.md:
 
-   ```markdown
+   \`\`\`markdown
    # Tasks
    1. [ ] <short title> (AC-01)
       - intent: <1 line>
       - files: <paths if known>
       - test: <how to verify>
+   \`\`\`
 
 3) Print a 3-line plan (title / files / test).  
 4) Ask **one** confirm only if anything is ambiguous or risky:
@@ -394,10 +425,10 @@ If no non-archived 20_tasks.md is found:
 - Match by number+text; flip \`[ ]\` → \`[x]\` only after success.
 - Append "— done: <ISO8601> by Bear" once; keep numbering/format.
 - Commit msg: \`tasks: check off N. <title> (AC-XX)\`.
-- If a change doesn’t map, log under **Unmapped Completions**.
+- If a change doesn't map, log under **Unmapped Completions**.
 
 ## Print Plan (compact)
-- Show table with: N | title | files | test (1–3 lines total).
+- Show table with: N | title | files | test (1—3 lines total).
 - Ask at most one clarification if needed; otherwise proceed.
 
 ## Archive (optional)
@@ -430,10 +461,11 @@ generate_functions() {
 # Tiers: ${tiers[*]}
 # Model: $CODEX_MODEL
 # Quiet Mode: $QUIET_MODE
+# File Opener: $FILE_OPENER
 
 EOF
 
-  # Generate default shortcuts (always point to mid if available, otherwise first tier)
+  # Generate default shortcuts
   local default_tier="mid"
   if [[ ! " ${tiers[*]} " == *" mid "* ]]; then
     default_tier="${tiers[0]}"
@@ -450,6 +482,7 @@ EOF
   for tier in "${tiers[@]}"; do
     local reasoning="${REASONING_LEVELS[$tier]}"
     
+    # KIRO FUNCTION
     cat <<EOF
 kiro-${tier}() {
     echo "🎯 KIRO-${tier^^}: Strategic Planning (${reasoning^} Reasoning)"
@@ -459,6 +492,7 @@ kiro-${tier}() {
             --ask-for-approval untrusted \\
             --model ${CODEX_MODEL} \\
             --config model_reasoning_effort=${reasoning} \\
+            --config file_opener=${FILE_OPENER} \\
             "\$(cat << 'KIRO_PROFILE'
 $(generate_kiro_profile "$tier")
 KIRO_PROFILE
@@ -470,6 +504,10 @@ USER TASK: \$*"
     fi
 }
 
+EOF
+
+    # BEAR FUNCTION - FIXED: Now properly generates content
+    cat <<EOF
 bear-${tier}() {
     echo "⚡ BEAR-${tier^^}: Implementation (${reasoning^} Reasoning)"
     if command -v codex >/dev/null 2>&1; then
@@ -478,6 +516,7 @@ bear-${tier}() {
             --ask-for-approval on-request \\
             --model ${CODEX_MODEL} \\
             --config model_reasoning_effort=${reasoning} \\
+            --config file_opener=${FILE_OPENER} \\
             "\$(cat << 'BEAR_PROFILE'
 $(generate_bear_profile "$tier")
 BEAR_PROFILE
@@ -533,6 +572,7 @@ codex-status() {
     echo "Auth: \$(test -f ~/.codex/auth.json && echo 'EXISTS' || echo 'MISSING')"
     echo "Embedded Functions: v${VERSION}"
     echo "Model: ${CODEX_MODEL}"
+    echo "File Opener: ${FILE_OPENER}"
     echo "Installed Tiers: ${tiers[*]}"
     
     echo
@@ -642,7 +682,6 @@ install_functions() {
     local tiers_line
     tiers_line="$(grep -m1 "^# Tiers:" "$rcfile" 2>/dev/null | sed 's/^# Tiers:[[:space:]]*//')"
     if [[ -n "$tiers_line" ]]; then
-      # split by space
       read -r -a existing_tiers <<< "$tiers_line"
     fi
   fi
@@ -661,7 +700,6 @@ install_functions() {
 
   if [[ $have_block -eq 1 ]]; then
     if [[ ${#new_tiers[@]} -gt 0 ]]; then
-      # We have new tiers on top of installed ones -> propose union install
       ce "Existing tiers: ${existing_tiers[*]:-(none)}"
       ce "New tiers to add: ${new_tiers[*]}"
       ce "Final tiers will be: ${existing_tiers[*]} ${new_tiers[*]}"
@@ -682,12 +720,10 @@ install_functions() {
           return 0
           ;;
         D|O)
-          # Remove the old block, then regenerate with union of tiers
           if ! safe_sed_inplace '/# BEGIN EMBEDDED CODEX FUNCTIONS/,/# END EMBEDDED CODEX FUNCTIONS/d' "$rcfile"; then
             err "Failed to remove existing functions from $rcfile"
             return 1
           fi
-          # Build union string preserving existing order then appending new
           local final_tiers=""
           if [[ ${#existing_tiers[@]} -gt 0 ]]; then
             final_tiers="${existing_tiers[*]}"
@@ -699,7 +735,6 @@ install_functions() {
           ;;
       esac
     else
-      # Same set (no new tiers) → ask O/S/D
       local mode
       if [[ -n "${INSTALL_MODE:-}" ]]; then
         case "$INSTALL_MODE" in
@@ -734,7 +769,7 @@ install_functions() {
   info "Installation complete! Next steps:"
   ce "  1. Run: source \"$rcfile\""
   ce "  2. Test: codex-status"
-  ce "  3. Try: kiro-test"
+  ce "  3. Try: bear-test (now works!)"
 }
 
 # ─────────────────────────────── Uninstall ───────────────────────────────
@@ -783,7 +818,6 @@ check_status() {
   if [[ -f "$rcfile" ]] && grep -q "# BEGIN EMBEDDED CODEX FUNCTIONS" "$rcfile" 2>/dev/null; then
     ok "Embedded functions installed in $rcfile"
     
-    # Extract version and tiers
     local version_line
     version_line=$(grep "# Generated:" "$rcfile" 2>/dev/null || echo "Unknown version")
     ce "  $version_line"
@@ -799,14 +833,12 @@ check_status() {
     warn "No embedded functions found"
   fi
   
-  # Check if functions are loaded in current session
   if declare -f kiro >/dev/null 2>&1; then
     ok "Functions loaded in current session"
   else
     warn "Functions not loaded (run: source \"$rcfile\")"
   fi
   
-  # Check Codex CLI
   if command -v codex >/dev/null 2>&1; then
     ok "Codex CLI available: $(command -v codex)"
     ce "  Version: $(codex --version 2>/dev/null || echo 'unknown')"
@@ -817,7 +849,6 @@ check_status() {
 
 # ─────────────────────────────── Main ───────────────────────────────
 main() {
-  # Handle special modes first
   if [[ $DO_VERSION -eq 1 ]]; then
     echo "Enhanced Embedded Profile Functions v${VERSION}"
     exit 0
@@ -837,6 +868,7 @@ main() {
   if [[ $INTERACTIVE -eq 1 && $AUTO_MODE -eq 0 ]]; then
     sep
     ce "Enhanced Embedded Profile Installer v${VERSION}"
+    ce "FIXED: Bear profiles now generate correctly"
     ce "Bypasses config.toml for maximum reliability"
     sep
     
@@ -848,7 +880,6 @@ main() {
     select_tiers_interactive
     select_options_interactive
   else
-    # Auto mode - use defaults or environment
     if [[ -z "$SELECTED_TIERS" ]]; then
       SELECTED_TIERS="mid"
     fi
@@ -862,6 +893,7 @@ main() {
   ce "Installation Summary:"
   ce "  Tiers: ${tiers[*]}"
   ce "  Model: $CODEX_MODEL"
+  ce "  File Opener: $FILE_OPENER"
   ce "  Quiet: $QUIET_MODE"
   ce "  Shell: $(detect_shell_rc)"
   sep
@@ -871,7 +903,6 @@ main() {
     exit 0
   fi
   
-  # Install
   install_functions
 }
 

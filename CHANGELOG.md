@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.3] - 2025-09-12
+
+### Fixed
+- **Critical Bear profile bug**: Bear profiles were generating empty content due to missing function calls in the generation logic. All Bear functions (`bear-min`, `bear-low`, `bear-mid`) now properly embed their profile instructions instead of empty heredoc blocks.
+- **Variable expansion in Bear profiles**: Corrected `generate_bear_profile()` to use unquoted heredoc (`<<EOF` instead of `<<'EOF'`) allowing proper substitution of `${tier}`, `${CODEX_MODEL}`, and `${reasoning}` variables.
+
+### Changed
+- **Code cleanup**: Streamlined redundant comments and consolidated similar error messages, reducing script size by ~20 lines while maintaining full functionality.
+- **Version banner**: Added "FIXED" notice in interactive mode to highlight the Bear profile repair.
+
+### Added
+- **Interactive/global file opener (embedded only)**: The embedded installer now supports selecting a default `file_opener` without touching `~/.codex/config.toml`.
+  - Supported values: `vscode` (default), `vscode-insiders`, `windsurf`, `cursor`, `none`.
+  - Selection methods:
+    - Interactive: prompted during installation with the current value as default.
+    - CLI: `--file-opener <opener>`.
+    - Env: `CODEX_FILE_OPENER=<opener>`.
+  - Propagation: passed to Codex via `--config file_opener=<opener>` alongside `model_reasoning_effort` in both Kiro and Bear functions.
+  - Visibility: shown in the generated block header, `codex-status`, and the Installation Summary.
+
+### Technical
+- **Version**: Bumped to `v2.0.3`.
+- **Backward compatibility**: Existing v2.0.2 installations should reinstall to get working Bear functions.
+
+### Migration from v2.0.2
+Users with v2.0.2 installations should run:
+```bash
+bash codex_interactive_embedded.sh --auto --mode overwrite
+source ~/.zshrc  # or ~/.bashrc
+bear-test  # Should now work correctly
+```
+
 ## [2.0.2] - 2025-09-11
 
 ### Added

@@ -109,6 +109,17 @@ bear-low "Fix validation error message typo"
 kiro-high "Design microservice architecture for payment processing"
 ```
 
+## File Opener (clickable links)
+
+You can control which editor opens when Codex emits clickable file links:
+
+- Allowed: `vscode` (default), `vscode-insiders`, `windsurf`, `cursor`, `none`.
+- Set via interactive installer prompt, or:
+  - Env: `CODEX_FILE_OPENER=<opener>`
+  - CLI: `bash codex_interactive_embedded.sh --file-opener <opener>`
+
+This is applied inside the embedded functions and passed to Codex as `--config file_opener=<opener>`. It does not modify `~/.codex/config.toml`.
+
 ## Kiro-min Walkthrough
 
 This example demonstrates exactly how `kiro-min` behaves from prompt to decision for a simple task. It helps users understand the STRICT planning and artifact-only workflow before switching to Bear for code changes.
