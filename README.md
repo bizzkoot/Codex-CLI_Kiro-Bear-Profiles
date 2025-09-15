@@ -27,6 +27,7 @@ Both agents support tiered reasoning models and enforce role-based safety constr
 ```bash
 # Download and install
 curl -fsSL https://github.com/bizzkoot/Codex-CLI_Kiro-Bear-Profiles/releases/latest/download/codex_interactive_embedded.sh -o codex_interactive_embedded.sh
+
 bash codex_interactive_embedded.sh
 
 # Reload your shell
@@ -81,9 +82,16 @@ The agents create a structured workspace under `/specs/{feature-slug}/`:
 
 ### Model Tiers
 
+As of v2.0.5, the installer supports multiple models with different reasoning capabilities. During interactive installation, you will be prompted to select a model.
+
+- **`gpt-5` (Default)**: Offers all four reasoning tiers (`minimal`, `low`, `medium`, `high`).
+- **`gpt-5-codex`**: A specialized model offering three reasoning tiers (`low`, `medium`, `high`).
+
+The available commands depend on the tiers you choose to install:
+
 | Command | Tier | Speed | Cost | Best For |
 |---------|------|--------|------|----------|
-| `kiro-min` `bear-min` | Minimal | ⚡ Fastest | 💰 Lowest | Quick tasks, simple queries |
+| `kiro-min` `bear-min` | Minimal | ⚡ Fastest | 💰 Lowest | Quick tasks, simple queries (*gpt-5 only*) |
 | `kiro-low` `bear-low` | Low | ⚡ Fast | 💰 Low | Standard development work |
 | `kiro` `bear` | Mid (default) | ⚖️ Balanced | 💰 Medium | Complex features, planning |
 | `kiro-high` `bear-high` | High | 🎯 Thorough | 💰 Premium | Critical systems, architecture |

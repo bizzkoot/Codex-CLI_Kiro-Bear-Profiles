@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.5] - 2025-09-16
+
+### Added
+- **Interactive Model Selection**: The installer now prompts users to choose between `gpt-5` (default) and the new `gpt-5-codex` model.
+- **Conditional Reasoning Tiers**: The available reasoning tiers are now conditional on the selected model. `gpt-5-codex` is limited to `low`, `mid`, and `high` tiers, while `gpt-5` retains all four (`min`, `low`, `mid`, `high`).
+
+### Changed
+- The interactive installation flow has been updated to present the model selection before the tier selection to support conditional choices.
+- The non-interactive tier parsing logic (`--tiers` flag) is now model-aware and will validate tiers against the selected model (`gpt-5` or `gpt-5-codex`).
+
+### Technical
+- **Version**: Bumped to `v2.0.5`.
+
 ## [2.0.4] - 2025-09-15
 
 ### Added

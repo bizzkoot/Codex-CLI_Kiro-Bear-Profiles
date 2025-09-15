@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
-# Enhanced Interactive Embedded Profile Functions v2.0.4
-# CHANGES (v2.0.4):
-# - Verbosity defaults: Kiro=low, Bear=medium
-# - Dynamic file opener at runtime via $CODEX_FILE_OPENER (fallback to installed default)
-# - Web Search: Kiro ON by default; Bear opt-in via $CODEX_WEB_SEARCH (0/1)
-# - Functions propagate Codex non-zero exit codes (|| return $?)
-# - REFACTORED: Generates a clean, single-pass shell configuration like v2.0.3.
+# Enhanced Interactive Embedded Profile Functions v2.0.5
+# CHANGES (v2.0.5):
+# - Interactive model selection: Choose between 'gpt-5' and 'gpt-5-codex'.
+# - Conditional reasoning tiers: 'gpt-5-codex' offers 'low', 'mid', 'high' tiers.
 # Full Kiro & Bear with configurable tiers and interactive setup
 
 set -euo pipefail
@@ -33,7 +30,7 @@ EOBASH
   exit 1
 fi
 
-VERSION="2.0.4"
+VERSION="2.0.5"
 SCRIPT_NAME="enhanced_embedded_profiles-${VERSION}.sh"
 
 # ─────────────────────────────── helpers ───────────────────────────────
@@ -49,7 +46,7 @@ safe_sed_inplace() {
   local pattern="$1"
   local file="$2"
   local tmpfile="${file}.tmp.$$"
-  
+
   if sed "$pattern" "$file" > "$tmpfile"; then
     mv "$tmpfile" "$file"
   else
@@ -99,10 +96,10 @@ FILE_OPENER="$CODEX_FILE_OPENER"
 
 # Reasoning effort mappings
 declare -A REASONING_LEVELS=(
-  ["min"]="minimal"
-  ["low"]="low" 
-  ["mid"]="medium"
-  ["high"]="high"
+  [min]="minimal"
+  [low]="low"
+  [mid]="medium"
+  [high]="high"
 )
 
 # ─────────────────────────────── Arguments ───────────────────────────────
@@ -185,15 +182,15 @@ detect_shell_rc() {
 }
 
 ask_yes_no() {
-  local prompt="${1:-Continue?}"
-  local default="${2:-Y}"
+  local prompt="${1:-\"Continue?\"}"
+  local default="${2:-\"Y\"}"
   local ans
-  
+
   if [[ $INTERACTIVE -eq 0 ]]; then
     echo "$default"
     return
   fi
-  
+
   read -r -p "${prompt} [${default}/n]: " ans || true
   ans="${ans:-$default}"
   case "$ans" in
@@ -203,8 +200,8 @@ ask_yes_no() {
 }
 
 ask_overwrite_mode() {
-  local prompt="${1:-Embedded functions already exist. Action?}"
-  local default="${2:-O}"
+  local prompt="${1:-\"Embedded functions already exist. Action?\"}"
+  local default="${2:-\"O\"}"
   local ans
   if [[ $INTERACTIVE -eq 0 ]]; then
     echo "$default"
@@ -226,7 +223,7 @@ ask_overwrite_mode() {
 }
 
 parse_tiers() {
-  local input="${1:-}"
+  local input="${1:-""}"
   local -a result=()
 
   if [[ -z "$input" ]]; then
@@ -238,14 +235,26 @@ parse_tiers() {
   for tier in "${parts[@]}"; do
     tier="$(echo "$tier" | xargs)"
     [[ -z "$tier" ]] && continue
-    case "$tier" in
-      1|min)   result+=("min") ;;
-      2|low)   result+=("low") ;;
-      3|mid)   result+=("mid") ;;
-      4|high)  result+=("high") ;;
-      5|all)   result=("min" "low" "mid" "high"); break ;;
-      *)       warn "Ignoring unknown tier: $tier" ;;
-    esac
+
+    if [[ "$CODEX_MODEL" == "gpt-5-codex" ]]; then
+      case "$tier" in
+        1|low)   result+=("low") ;;
+        2|mid)   result+=("mid") ;;
+        3|high)  result+=("high") ;;
+        4|all)   result=("low" "mid" "high"); break ;;
+        min)     warn "Ignoring unsupported tier 'min' for model '$CODEX_MODEL'" ;;
+        *)       warn "Ignoring unknown tier for '$CODEX_MODEL': $tier" ;;
+      esac
+    else # gpt-5
+      case "$tier" in
+        1|min)   result+=("min") ;;
+        2|low)   result+=("low") ;;
+        3|mid)   result+=("mid") ;;
+        4|high)  result+=("high") ;;
+        5|all)   result=("min" "low" "mid" "high"); break ;;
+        *)       warn "Ignoring unknown tier: $tier" ;;
+      esac
+    fi
   done
 
   if [[ ${#result[@]} -eq 0 ]]; then
@@ -255,58 +264,96 @@ parse_tiers() {
   printf "%s\n" "${result[@]}"
 }
 
+
 # ─────────────────────────────── Interactive Selections ───────────────────────────────
 select_tiers_interactive() {
   sep
   ce "Enhanced Embedded Profile Installer v${VERSION}"
   sep
-  ce "Select reasoning tiers to install:"
-  ce "  1) min     - Minimal reasoning (fastest, basic tasks)"
-  ce "  2) low     - Low reasoning (quick, simple tasks)"
-  ce "  3) mid     - Medium reasoning (balanced, recommended)"
-  ce "  4) high    - High reasoning (thorough, complex tasks)"
-  ce "  5) all     - All tiers (min,low,mid,high)"
-  echo
-  
-  local choice
-  read -r -p "Enter choices [1-5 or comma-separated like '2,3,4', default: 3]: " choice || true
-  
-  case "${choice:-3}" in
-    1) SELECTED_TIERS="min" ;;
-    2) SELECTED_TIERS="low" ;;
-    3) SELECTED_TIERS="mid" ;;
-    4) SELECTED_TIERS="high" ;;
-    5) SELECTED_TIERS="min,low,mid,high" ;;
-    *) 
-      choice="${choice//1/min,}"
-      choice="${choice//2/low,}"
-      choice="${choice//3/mid,}"
-      choice="${choice//4/high,}"
-      choice="${choice//5/min,low,mid,high,}"
-      choice="${choice%,}"
-      SELECTED_TIERS="$choice"
-      ;;
-  esac
-  
-  if [[ -z "$SELECTED_TIERS" ]]; then
-    SELECTED_TIERS="mid"
+  ce "Select reasoning tiers to install for model '$CODEX_MODEL':"
+
+  if [[ "$CODEX_MODEL" == "gpt-5-codex" ]]; then
+    ce "  1) low     - Low reasoning (quick, simple tasks)"
+    ce "  2) mid     - Medium reasoning (balanced, recommended)"
+    ce "  3) high    - High reasoning (thorough, complex tasks)"
+    ce "  4) all     - All tiers (low,mid,high)"
+    echo
+
+    local choice
+    read -r -p "Enter choices [1-4 or comma-separated like '1,2,3', default: 2]: " choice || true
+
+    case "${choice:-2}" in
+      1) SELECTED_TIERS="low" ;;
+      2) SELECTED_TIERS="mid" ;;
+      3) SELECTED_TIERS="high" ;;
+      4) SELECTED_TIERS="low,mid,high" ;;
+      *)
+        choice="${choice//1/low,}"
+        choice="${choice//2/mid,}"
+        choice="${choice//3/high,}"
+        choice="${choice//4/low,mid,high,}"
+        choice="${choice%,}"
+        SELECTED_TIERS="$choice"
+        ;;
+    esac
+
+    if [[ -z "$SELECTED_TIERS" ]]; then
+      SELECTED_TIERS="mid"
+    fi
+  else # gpt-5 (default)
+    ce "  1) min     - Minimal reasoning (fastest, basic tasks)"
+    ce "  2) low     - Low reasoning (quick, simple tasks)"
+    ce "  3) mid     - Medium reasoning (balanced, recommended)"
+    ce "  4) high    - High reasoning (thorough, complex tasks)"
+    ce "  5) all     - All tiers (min,low,mid,high)"
+    echo
+
+    local choice
+    read -r -p "Enter choices [1-5 or comma-separated like '2,3,4', default: 3]: " choice || true
+
+    case "${choice:-3}" in
+      1) SELECTED_TIERS="min" ;;
+      2) SELECTED_TIERS="low" ;;
+      3) SELECTED_TIERS="mid" ;;
+      4) SELECTED_TIERS="high" ;;
+      5) SELECTED_TIERS="min,low,mid,high" ;;
+      *)
+        choice="${choice//1/min,}"
+        choice="${choice//2/low,}"
+        choice="${choice//3/mid,}"
+        choice="${choice//4/high,}"
+        choice="${choice//5/min,low,mid,high,}"
+        choice="${choice%,}"
+        SELECTED_TIERS="$choice"
+        ;;
+    esac
+
+    if [[ -z "$SELECTED_TIERS" ]]; then
+      SELECTED_TIERS="mid"
+    fi
   fi
 }
 
 select_options_interactive() {
   sep
   ce "Installation Options:"
-  
+
   if [[ "$(ask_yes_no "Show startup confirmation messages when functions load?" "Y")" == "N" ]]; then
     QUIET_MODE=1
   fi
-  
+
   echo
-  ce "Model: $CODEX_MODEL"
-  if [[ "$(ask_yes_no "Change model from $CODEX_MODEL?" "N")" == "Y" ]]; then
-    read -r -p "Enter model name [gpt-5]: " new_model || true
-    CODEX_MODEL="${new_model:-gpt-5}"
-  fi
+  ce "Select model:"
+  ce "  1) gpt-5 (default, 4 reasoning tiers)"
+  ce "  2) gpt-5-codex (3 reasoning tiers: low, mid, high)"
+  local model_choice
+  read -r -p "Choose [1-2, default: 1]: " model_choice || true
+  case "${model_choice:-1}" in
+    1) CODEX_MODEL="gpt-5" ;;
+    2) CODEX_MODEL="gpt-5-codex" ;;
+    *) CODEX_MODEL="gpt-5"; warn "Unknown choice, defaulting to 'gpt-5'" ;;
+  esac
+  ce "Model set to: $CODEX_MODEL"
 
   echo
   # Direct selection of file opener with dynamic default as current value
@@ -339,7 +386,7 @@ select_options_interactive() {
 generate_kiro_profile() {
   local tier="$1"
   local reasoning="${REASONING_LEVELS[$tier]}"
-  
+
   cat <<EOF
 # Kiro (Codex CLI) — STRICT Planning & Artifacts
 
@@ -362,7 +409,9 @@ SWITCH TO BEAR: bear-${tier} "<ABSOLUTE_PATH_TO_/specs/{feature-slug}/20_tasks.m
 - Prefer EARS-style acceptance criteria; keep traceability light.
 - Show minimal diffs before writing.
 - Always re-read existing markdowns and update incrementally.
-- For 20_tasks.md, format each item as \`N. [ ] ... (AC-ID)\` (checkboxes + numbering).
+- For 20_tasks.md, format each item as
+N. [ ] ... (AC-ID)
+ (checkboxes + numbering).
 
 ## Flow
 1) Requirements PREVIEW: scope, constraints, acceptance criteria (IDs).
@@ -401,7 +450,8 @@ generate_bear_profile() {
 
 ## Input
 - Handoff: absolute path from Kiro (optional).
-- Slug: resolve to \${PWD}/specs/{slug}/20_tasks.md.
+- Slug: resolve to
+${PWD}/specs/{slug}/20_tasks.md.
 - Fallback: choose most recent non-archived: /specs/**/20_tasks.md (exclude /specs/Done/**).
 
 ## Missing-Tasks Flow (Option 2)
@@ -409,15 +459,16 @@ If no non-archived 20_tasks.md is found:
 1) Derive {slug} (kebab-case from feature name; confirm once).
 2) Create stub at /specs/{slug}/20_tasks.md:
 
-   \`\`\`markdown
-   # Tasks
-   1. [ ] <short title> (AC-01)
-      - intent: <1 line>
-      - files: <paths if known>
-      - test: <how to verify>
-   \`\`\`
 
-3) Print a 3-line plan (title / files / test).  
+\`\`\`markdown
+# Tasks
+1. [ ] <short title> (AC-01)
+   - intent: <1 line>
+   - files: <paths if known>
+   - test: <how to verify>
+\`\`\`
+
+3) Print a 3-line plan (title / files / test).
 4) Ask **one** confirm only if anything is ambiguous or risky:
 - Confirm? REPLY: APPROVE / REVISE:<edits> / CANCEL
 - If AUTO: proceed unless risky/large.
@@ -428,9 +479,14 @@ If no non-archived 20_tasks.md is found:
 - Start with a micro-plan (≤5 bullets) referencing task numbers.
 - Output small diffs or file blocks; run & summarize checks when relevant.
 - For 20_tasks.md:
-- Match by number+text; flip \`[ ]\` → \`[x]\` only after success.
+- Match by number+text; flip
+[ ]
+ →
+[x]
+ only after success.
 - Append "— done: <ISO8601> by Bear" once; keep numbering/format.
-- Commit msg: \`tasks: check off N. <title> (AC-XX)\`.
+- Commit msg:
+\`tasks: check off N. <title> (AC-XX)\`.
 - If a change doesn't map, log under **Unmapped Completions**.
 
 ## Print Plan (compact)
@@ -438,7 +494,9 @@ If no non-archived 20_tasks.md is found:
 - Ask at most one clarification if needed; otherwise proceed.
 
 ## Archive (optional)
-When all tasks \`[x]\` (or ARCHIVE):
+When all tasks
+[x]
+ (or ARCHIVE):
 - Move 00/10/20 to /specs/Done/{DD-MM-YYYY}_{slug}/
 - (Optional) update /specs/_index.md
 - On APPROVE → perform and print path.
@@ -459,7 +517,7 @@ EOF
 generate_functions() {
   local -a tiers=()
   readarray -t tiers < <(parse_tiers "$SELECTED_TIERS")
-  
+
   # Generate header
   cat <<EOF
 # BEGIN EMBEDDED CODEX FUNCTIONS v${VERSION}
@@ -476,7 +534,7 @@ EOF
   if [[ ! " ${tiers[*]} " =~ " mid " ]]; then
     default_tier="${tiers[0]}"
   fi
-  
+
   cat <<EOF
 # Default shortcuts
 kiro() { kiro-${default_tier} "\$@"; }
@@ -487,30 +545,32 @@ EOF
   # Generate tier-specific functions with inlined profiles
   for tier in "${tiers[@]}"; do
     local reasoning="${REASONING_LEVELS[$tier]}"
-    
-    # KIRO FUNCTION
     local kiro_profile_body
-    kiro_profile_body="$(generate_kiro_profile "$tier")"
-    
+    kiro_profile_body=$(generate_kiro_profile "$tier")
+    local bear_profile_body
+    bear_profile_body=$(generate_bear_profile "$tier")
+
+    # KIRO FUNCTION
     cat <<EOF
 kiro-${tier}() {
     echo "🎯 KIRO-${tier^^}: Strategic Planning (${reasoning^} Reasoning)"
     if command -v codex >/dev/null 2>&1; then
         local __FO="\${CODEX_FILE_OPENER:-${FILE_OPENER}}"
+        local kiro_prompt=\$(cat <<'KIRO_TEXT'
+${kiro_profile_body}
+KIRO_TEXT
+)
         codex \\
             --sandbox read-only \\
             --ask-for-approval untrusted \\
             --model "${CODEX_MODEL}" \\
             --config model_reasoning_effort=${reasoning} \\
             --config model_verbosity=low \\
-            --config file_opener="\${__FO}" \\
+            --config "file_opener=\${__FO}" \\
             --config tools.web_search=true \\
-            "\$(cat << 'KIRO_PROFILE'
-${kiro_profile_body}
-KIRO_PROFILE
-)
+            "\$kiro_prompt
 
-USER TASK: \$*" || return \$?
+USER TASK: \$@" || return \$?
     else
         echo "❌ Codex CLI not available"; return 127
     fi
@@ -518,34 +578,31 @@ USER TASK: \$*" || return \$?
 EOF
 
     # BEAR FUNCTION
-    local bear_profile_body
-    bear_profile_body="$(generate_bear_profile "$tier")"
-
     cat <<EOF
 bear-${tier}() {
     echo "⚡ BEAR-${tier^^}: Implementation (${reasoning^} Reasoning)"
     if command -v codex >/dev/null 2>&1; then
         local __FO="\${CODEX_FILE_OPENER:-${FILE_OPENER}}"
-        # Translate CODEX_WEB_SEARCH=1/0 to true/false for the CLI flag
         local __WS_env="\${CODEX_WEB_SEARCH:-0}"
         local __WS_bool="false"
         if [[ "\$__WS_env" == "1" ]]; then
             __WS_bool="true"
         fi
+        local bear_prompt=\$(cat <<'BEAR_TEXT'
+${bear_profile_body}
+BEAR_TEXT
+)
         codex \\
             --sandbox workspace-write \\
             --ask-for-approval on-request \\
             --model "${CODEX_MODEL}" \\
             --config model_reasoning_effort=${reasoning} \\
             --config model_verbosity=medium \\
-            --config file_opener="\${__FO}" \\
-            --config tools.web_search=\$__WS_bool \\
-            "\$(cat << 'BEAR_PROFILE'
-${bear_profile_body}
-BEAR_PROFILE
-)
+            --config "file_opener=\${__FO}" \\
+            --config "tools.web_search=\${__WS_bool}" \\
+            "\$bear_prompt
 
-USER TASK: \$*" || return \$?
+USER TASK: \$@" || return \$?
     else
         echo "❌ Codex CLI not available"; return 127
     fi
@@ -594,7 +651,7 @@ codex-status() {
     echo "File Opener (runtime): \${__FO}"
     echo "Installed Tiers: ${tiers[*]}"
     echo "Web Search: Kiro=ON, Bear=\${__WS} (override per-call: CODEX_WEB_SEARCH=1 bear '...')"
-    
+
     echo
     echo "🎯 KIRO Commands (Strategic Planning):"
     echo "  kiro 'task'       - Default (${default_tier} tier)"
@@ -606,7 +663,7 @@ EOF
   done
 
   cat <<EOF
-    
+
     echo
     echo "⚡ BEAR Commands (Implementation):"
     echo "  bear 'task'       - Default (${default_tier} tier)"
@@ -618,7 +675,7 @@ EOF
   done
 
   cat <<'EOF'
-    
+
     echo
     echo "🧪 Test Commands:"
     echo "  kiro-test         - Test default planning"
@@ -631,7 +688,7 @@ EOF
   done
 
   cat <<'EOF'
-    
+
     echo
     echo "🔧 Utility Commands:"
     echo "  codex-status      - Show this status"
@@ -832,35 +889,35 @@ uninstall_functions() {
 check_status() {
   local rcfile
   rcfile="$(detect_shell_rc)"
-  
+
   sep
   ce "Embedded Profile Functions Status"
   sep
-  
+
   if [[ -f "$rcfile" ]] && grep -q "# BEGIN EMBEDDED CODEX FUNCTIONS" "$rcfile" 2>/dev/null; then
     ok "Embedded functions installed in $rcfile"
-    
+
     local version_line
-    version_line=$(grep "# Generated:" "$rcfile" 2>/dev/null || echo "Unknown version")
+    version_line="$(grep "# Generated:" "$rcfile" 2>/dev/null || echo "Unknown version")"
     ce "  $version_line"
-    
+
     local tiers_line
-    tiers_line=$(grep "# Tiers:" "$rcfile" 2>/dev/null || echo "Unknown tiers")
+    tiers_line="$(grep "# Tiers:" "$rcfile" 2>/dev/null || echo "Unknown tiers")"
     ce "  $tiers_line"
-    
+
     local model_line
-    model_line=$(grep "# Model:" "$rcfile" 2>/dev/null || echo "Unknown model")
+    model_line="$(grep "# Model:" "$rcfile" 2>/dev/null || echo "Unknown model")"
     ce "  $model_line"
   else
     warn "No embedded functions found"
   fi
-  
+
   if declare -f kiro >/dev/null 2>&1; then
     ok "Functions loaded in current session"
   else
     warn "Functions not loaded (run: source \"$rcfile\")"
   fi
-  
+
   if command -v codex >/dev/null 2>&1; then
     ok "Codex CLI available: $(command -v codex)"
     ce "  Version: $(codex --version 2>/dev/null || echo 'unknown')"
@@ -875,41 +932,41 @@ main() {
     echo "Enhanced Embedded Profile Functions v${VERSION}"
     exit 0
   fi
-  
+
   if [[ $DO_UNINSTALL -eq 1 ]]; then
     uninstall_functions
     exit 0
   fi
-  
+
   if [[ $DO_CHECK -eq 1 ]]; then
     check_status
     exit 0
   fi
-  
+
   # Interactive mode
   if [[ $INTERACTIVE -eq 1 && $AUTO_MODE -eq 0 ]]; then
     sep
     ce "Enhanced Embedded Profile Installer v${VERSION}"
     ce "Bypasses config.toml for maximum reliability"
     sep
-    
+
     if [[ "$(ask_yes_no "Proceed with interactive installation?" "Y")" == "N" ]]; then
       ce "Installation cancelled"
       exit 0
     fi
-    
-    select_tiers_interactive
+
     select_options_interactive
+    select_tiers_interactive
   else
     if [[ -z "$SELECTED_TIERS" ]]; then
       SELECTED_TIERS="mid"
     fi
   fi
-  
+
   # Show installation summary
   local -a tiers=()
   readarray -t tiers < <(parse_tiers "$SELECTED_TIERS")
-  
+
   sep
   ce "Installation Summary:"
   ce "  Tiers: ${tiers[*]}"
@@ -919,13 +976,14 @@ main() {
   ce "  Quiet: $QUIET_MODE"
   ce "  Shell: $(detect_shell_rc)"
   sep
-  
+
   if [[ $INTERACTIVE -eq 1 && "$(ask_yes_no "Proceed with installation?" "Y")" == "N" ]]; then
     ce "Installation cancelled"
     exit 0
   fi
-  
+
   install_functions
 }
 
 main "$@"
+
