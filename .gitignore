@@ -26,3 +26,6 @@ task.txt
 scripts/
 
 COMMIT_CONVENTIONS.md
+codex_docs
+AGENTS.md
+zshrc_*.txt

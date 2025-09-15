@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
-# Enhanced Interactive Embedded Profile Functions v2.0.3
-# FIXED: Bear profiles now generate correctly
+# Enhanced Interactive Embedded Profile Functions v2.0.4
+# CHANGES (v2.0.4):
+# - Verbosity defaults: Kiro=low, Bear=medium
+# - Dynamic file opener at runtime via $CODEX_FILE_OPENER (fallback to installed default)
+# - Web Search: Kiro ON by default; Bear opt-in via $CODEX_WEB_SEARCH (0/1)
+# - Functions propagate Codex non-zero exit codes (|| return $?)
+# - REFACTORED: Generates a clean, single-pass shell configuration like v2.0.3.
 # Full Kiro & Bear with configurable tiers and interactive setup
 
 set -euo pipefail
@@ -28,7 +33,7 @@ EOBASH
   exit 1
 fi
 
-VERSION="2.0.3"
+VERSION="2.0.4"
 SCRIPT_NAME="enhanced_embedded_profiles-${VERSION}.sh"
 
 # ─────────────────────────────── helpers ───────────────────────────────
@@ -57,8 +62,6 @@ usage() {
   cat <<EOF
 Enhanced Embedded Profile Functions v${VERSION}
 
-FIXED: Bear profiles now generate correctly in v2.0.3
-
 This script installs Kiro & Bear functions with embedded profile instructions,
 bypassing the config.toml profile system entirely for maximum reliability.
 
@@ -73,13 +76,14 @@ Usage:
   $0 --help                   # Show this help
 
 Environment Variables:
-  CODEX_MODEL=gpt-5           # Model to use
+  CODEX_MODEL=gpt-5            # Model to use
   CODEX_TIERS=min,low,mid,high # Tiers to install
-  CODEX_QUIET=1               # Suppress startup messages
+  CODEX_QUIET=1                # Suppress startup messages
   CODEX_FILE_OPENER=vscode|vscode-insiders|windsurf|cursor|none  # File opener for links
-  
+  CODEX_WEB_SEARCH=0|1         # Bear web access (0=off default, 1=on). Kiro always ON.
+
 CLI Options:
-  --file-opener OPENER        # One of: vscode, vscode-insiders, windsurf, cursor, none
+  --file-opener OPENER         # One of: vscode, vscode-insiders, windsurf, cursor, none
 EOF
 }
 
@@ -88,6 +92,7 @@ EOF
 : "${CODEX_TIERS:=""}"
 : "${CODEX_QUIET:=""}"
 : "${CODEX_FILE_OPENER:="vscode"}"
+: "${CODEX_WEB_SEARCH:="0"}"   # Only used at runtime by Bear functions
 
 # File opener (validated)
 FILE_OPENER="$CODEX_FILE_OPENER"
@@ -109,6 +114,7 @@ DO_CHECK=0
 DO_VERSION=0
 SELECTED_TIERS=""
 CLI_FILE_OPENER=""
+INSTALL_MODE=""
 
 # Detect if running interactively
 if [[ ! -t 0 || ! -t 1 ]]; then
@@ -460,14 +466,14 @@ generate_functions() {
 # Generated: $(date)
 # Tiers: ${tiers[*]}
 # Model: $CODEX_MODEL
-# Quiet Mode: $QUIET_MODE
-# File Opener: $FILE_OPENER
+# File Opener (default): $FILE_OPENER
+# Web Search: Kiro=ON, Bear=ENV (CODEX_WEB_SEARCH=0)
 
 EOF
 
   # Generate default shortcuts
   local default_tier="mid"
-  if [[ ! " ${tiers[*]} " == *" mid "* ]]; then
+  if [[ ! " ${tiers[*]} " =~ " mid " ]]; then
     default_tier="${tiers[0]}"
   fi
   
@@ -478,53 +484,70 @@ bear() { bear-${default_tier} "\$@"; }
 
 EOF
 
-  # Generate tier-specific functions
+  # Generate tier-specific functions with inlined profiles
   for tier in "${tiers[@]}"; do
     local reasoning="${REASONING_LEVELS[$tier]}"
     
     # KIRO FUNCTION
+    local kiro_profile_body
+    kiro_profile_body="$(generate_kiro_profile "$tier")"
+    
     cat <<EOF
 kiro-${tier}() {
     echo "🎯 KIRO-${tier^^}: Strategic Planning (${reasoning^} Reasoning)"
     if command -v codex >/dev/null 2>&1; then
+        local __FO="\${CODEX_FILE_OPENER:-${FILE_OPENER}}"
         codex \\
             --sandbox read-only \\
             --ask-for-approval untrusted \\
-            --model ${CODEX_MODEL} \\
+            --model "${CODEX_MODEL}" \\
             --config model_reasoning_effort=${reasoning} \\
-            --config file_opener=${FILE_OPENER} \\
+            --config model_verbosity=low \\
+            --config file_opener="\${__FO}" \\
+            --config tools.web_search=true \\
             "\$(cat << 'KIRO_PROFILE'
-$(generate_kiro_profile "$tier")
+${kiro_profile_body}
 KIRO_PROFILE
 )
 
-USER TASK: \$*"
+USER TASK: \$*" || return \$?
     else
-        echo "❌ Codex CLI not available"
+        echo "❌ Codex CLI not available"; return 127
     fi
 }
-
 EOF
 
-    # BEAR FUNCTION - FIXED: Now properly generates content
+    # BEAR FUNCTION
+    local bear_profile_body
+    bear_profile_body="$(generate_bear_profile "$tier")"
+
     cat <<EOF
 bear-${tier}() {
     echo "⚡ BEAR-${tier^^}: Implementation (${reasoning^} Reasoning)"
     if command -v codex >/dev/null 2>&1; then
+        local __FO="\${CODEX_FILE_OPENER:-${FILE_OPENER}}"
+        # Translate CODEX_WEB_SEARCH=1/0 to true/false for the CLI flag
+        local __WS_env="\${CODEX_WEB_SEARCH:-0}"
+        local __WS_bool="false"
+        if [[ "\$__WS_env" == "1" ]]; then
+            __WS_bool="true"
+        fi
         codex \\
             --sandbox workspace-write \\
             --ask-for-approval on-request \\
-            --model ${CODEX_MODEL} \\
+            --model "${CODEX_MODEL}" \\
             --config model_reasoning_effort=${reasoning} \\
-            --config file_opener=${FILE_OPENER} \\
+            --config model_verbosity=medium \\
+            --config file_opener="\${__FO}" \\
+            --config tools.web_search=\$__WS_bool \\
             "\$(cat << 'BEAR_PROFILE'
-$(generate_bear_profile "$tier")
+${bear_profile_body}
 BEAR_PROFILE
 )
 
-USER TASK: \$*"
+USER TASK: \$*" || return \$?
     else
-        echo "❌ Codex CLI not available"
+        echo "❌ Codex CLI not available"; return 127
     fi
 }
 
@@ -539,32 +562,28 @@ bear-test() { bear "Create a basic hello.js file with console.log"; }
 
 EOF
 
-  # Generate tier-specific test functions
   for tier in "${tiers[@]}"; do
+    local kiro_task
+    local bear_task
     case "$tier" in
-      min) task="Plan a basic calculator app" ;;
-      low) task="Plan a simple blog website" ;;
-      mid) task="Plan a todo app with authentication" ;;
-      high) task="Plan a scalable e-commerce platform" ;;
+      min) kiro_task="Plan a basic calculator app"; bear_task="Create hello world function" ;;
+      low) kiro_task="Plan a simple blog website"; bear_task="Implement basic CRUD operations" ;;
+      mid) kiro_task="Plan a todo app with authentication"; bear_task="Build authentication middleware" ;;
+      high) kiro_task="Plan a scalable e-commerce platform"; bear_task="Implement distributed caching system" ;;
     esac
-    
-    echo "kiro-test-${tier}() { kiro-${tier} \"${task}\"; }"
-    
-    case "$tier" in
-      min) task="Create hello world function" ;;
-      low) task="Implement basic CRUD operations" ;;
-      mid) task="Build authentication middleware" ;;
-      high) task="Implement distributed caching system" ;;
-    esac
-    
-    echo "bear-test-${tier}() { bear-${tier} \"${task}\"; }"
+    cat <<EOF
+kiro-test-${tier}() { kiro-${tier} "${kiro_task}"; }
+bear-test-${tier}() { bear-${tier} "${bear_task}"; }
+EOF
   done
 
-  # Generate status function
+  # Generate status and help functions
   cat <<EOF
 
 # Status and help functions
 codex-status() {
+    local __FO="\${CODEX_FILE_OPENER:-${FILE_OPENER}}"
+    local __WS="\${CODEX_WEB_SEARCH:-0}"
     echo "=== Codex CLI Status with Embedded Profiles ==="
     echo "CLI Available: \$(command -v codex >/dev/null 2>&1 && echo 'YES' || echo 'NO')"
     echo "Version: \$(codex --version 2>/dev/null || echo 'UNKNOWN')"
@@ -572,8 +591,9 @@ codex-status() {
     echo "Auth: \$(test -f ~/.codex/auth.json && echo 'EXISTS' || echo 'MISSING')"
     echo "Embedded Functions: v${VERSION}"
     echo "Model: ${CODEX_MODEL}"
-    echo "File Opener: ${FILE_OPENER}"
+    echo "File Opener (runtime): \${__FO}"
     echo "Installed Tiers: ${tiers[*]}"
+    echo "Web Search: Kiro=ON, Bear=\${__WS} (override per-call: CODEX_WEB_SEARCH=1 bear '...')"
     
     echo
     echo "🎯 KIRO Commands (Strategic Planning):"
@@ -597,7 +617,7 @@ EOF
     echo "    echo \"  bear-${tier} 'task'   - ${reasoning^} reasoning\""
   done
 
-  cat <<EOF
+  cat <<'EOF'
     
     echo
     echo "🧪 Test Commands:"
@@ -628,26 +648,27 @@ codex-help() {
     echo
     echo "⚡ Implementation (Bear):"
     echo "  bear 'Implement the login endpoint'"
-    echo "  bear-high 'Build comprehensive error handling system'"
+    echo "  CODEX_WEB_SEARCH=1 bear 'Investigate a breaking change'"
     echo "  bear-min 'Create basic HTML structure'"
     echo
     echo "📄 Workflow:"
     echo "  1. Use Kiro to plan: kiro 'Plan feature X'"
     echo "  2. Approve requirements, design, tasks"
     echo "  3. Switch to Bear: bear 'Implement task #1 from tasks.md'"
-    echo "  4. Review and approve implementation"
+    echo "  4. For external info during Bear: prefix with CODEX_WEB_SEARCH=1"
 }
 
 EOF
 
-  # Add startup message (conditional)
+  # Generate startup banner
   if [[ $QUIET_MODE -eq 0 ]]; then
     cat <<EOF
 # Startup confirmation
 echo "✅ Embedded Profile Functions Loaded (v${VERSION})"
 echo "   Tiers: ${tiers[*]}"
 echo "   Model: ${CODEX_MODEL}"
-echo "   Run 'codex-status' for all commands"
+echo "   Default opener: ${FILE_OPENER} (override at runtime via CODEX_FILE_OPENER)"
+echo "   Tip: 'codex-status' to inspect; 'CODEX_WEB_SEARCH=1 bear \"...\"' to enable Bear web search"
 EOF
   fi
 
@@ -656,6 +677,7 @@ EOF
 # END EMBEDDED CODEX FUNCTIONS
 EOF
 }
+
 
 # ─────────────────────────────── Installation ───────────────────────────────
 
@@ -769,7 +791,7 @@ install_functions() {
   info "Installation complete! Next steps:"
   ce "  1. Run: source \"$rcfile\""
   ce "  2. Test: codex-status"
-  ce "  3. Try: bear-test (now works!)"
+  ce "  3. Try: bear-test"
 }
 
 # ─────────────────────────────── Uninstall ───────────────────────────────
@@ -868,7 +890,6 @@ main() {
   if [[ $INTERACTIVE -eq 1 && $AUTO_MODE -eq 0 ]]; then
     sep
     ce "Enhanced Embedded Profile Installer v${VERSION}"
-    ce "FIXED: Bear profiles now generate correctly"
     ce "Bypasses config.toml for maximum reliability"
     sep
     
@@ -893,7 +914,8 @@ main() {
   ce "Installation Summary:"
   ce "  Tiers: ${tiers[*]}"
   ce "  Model: $CODEX_MODEL"
-  ce "  File Opener: $FILE_OPENER"
+  ce "  Default File Opener: $FILE_OPENER (runtime override via CODEX_FILE_OPENER)"
+  ce "  Bear Web Search default (CODEX_WEB_SEARCH): $CODEX_WEB_SEARCH"
   ce "  Quiet: $QUIET_MODE"
   ce "  Shell: $(detect_shell_rc)"
   sep

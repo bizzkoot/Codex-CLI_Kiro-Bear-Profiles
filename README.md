@@ -45,6 +45,7 @@ bear "Implement login form component"
 - **Output**: Structured documentation in numbered files (`00_requirements.md`, `10_design.md`, `20_tasks.md`)  
 - **Workflow**: Plan → Requirements → Design → Tasks (with approval gates)
 - **Features**: EARS-style acceptance criteria, light traceability, incremental updates
+- **Web Search**: As of v2.0.4, Kiro has web search enabled by default to enhance planning with external context.
 
 ### ⚡ Bear - The Tactical Executor
 - **Purpose**: Task implementation with deliberate execution  
@@ -52,6 +53,7 @@ bear "Implement login form component"
 - **Output**: Working code with incremental progress  
 - **Workflow**: Plan → Risk Assessment → Execute → Validate (step-by-step)
 - **Features**: Context-aware (reads all three planning files); micro-plan preview (≤5 bullets); can bootstrap when no `20_tasks.md` exists; excludes archived specs when resolving tasks; archive flow on completion
+- **Web Search**: As of v2.0.4, Bear's web search is opt-in and can be enabled per-call via the `CODEX_WEB_SEARCH=1` environment variable.
 
 ## File Structure
 
@@ -119,6 +121,8 @@ You can control which editor opens when Codex emits clickable file links:
   - CLI: `bash codex_interactive_embedded.sh --file-opener <opener>`
 
 This is applied inside the embedded functions and passed to Codex as `--config file_opener=<opener>`. It does not modify `~/.codex/config.toml`.
+
+As of v2.0.4, you can also override the file opener at runtime by setting the `CODEX_FILE_OPENER` environment variable, which will take precedence over the installed default.
 
 ## Kiro-min Walkthrough
 
@@ -349,6 +353,7 @@ Besides the `kiro` and `bear` agent functions, the installer adds helpful utilit
 - **Shell detection**: The installer detects your shell and targets the appropriate rc file automatically.
 - **Tier management**: Can add new tiers to existing installation without losing current setup.
 - **Auto mode requirement**: `--auto` validates the Codex CLI is installed and on `PATH`; install `@openai/codex-cli` first or run interactive mode.
+- **Exit code propagation**: As of v2.0.4, shell functions for Kiro and Bear correctly propagate non-zero exit codes from the Codex CLI, allowing for more reliable scripting and error detection.
 
 ## What Gets Installed
 
@@ -359,6 +364,10 @@ The installer writes them into your shell rc (e.g., `~/.zshrc`). After installin
 Available commands:
 - `kiro` (default mid), `kiro-min`, `kiro-low`, `kiro-mid`, `kiro-high`  
 - `bear` (default mid), `bear-min`, `bear-low`, `bear-mid`, `bear-high`  
+
+As of v2.0.4, the default verbosity levels have been adjusted to better suit agent roles:
+- Kiro now defaults to `low` verbosity for more concise planning output
+- Bear defaults to `medium` verbosity for balanced implementation detail
 
 ### Bear Input Resolution
 Bear intelligently resolves different input formats:

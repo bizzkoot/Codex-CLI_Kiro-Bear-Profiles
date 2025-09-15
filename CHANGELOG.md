@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.4] - 2025-09-15
+
+### Added
+- **Web Search Capability**: Kiro now has web search enabled by default to enhance planning with external context. Bear's web search is opt-in and can be enabled per-call via the `CODEX_WEB_SEARCH=1` environment variable.
+- **Runtime File Opener Override**: The file opener can now be dynamically set at runtime by the `CODEX_FILE_OPENER` environment variable, which overrides the default value set during installation.
+
+### Changed
+- **Default Verbosity Levels**: Adjusted default verbosity to better suit agent roles. Kiro now defaults to `low` for more concise planning output, while Bear defaults to `medium` for balanced implementation detail.
+
+### Fixed
+- **Exit Code Propagation**: Shell functions for Kiro and Bear now correctly propagate non-zero exit codes from the Codex CLI, allowing for more reliable scripting and error detection.
+
+### Technical
+- **Refactored Function Generation**: The script's internal logic for generating the shell configuration has been streamlined for improved clarity and maintenance.
+- **Version**: Bumped to `v2.0.4`.
+
 ## [2.0.3] - 2025-09-12
 
 ### Fixed
